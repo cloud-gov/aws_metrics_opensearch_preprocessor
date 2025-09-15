@@ -1,3 +1,3 @@
-# Github templates
+# Lambda Testing pipeline
 
-This repo contains Github templates (pull request, issue, etc) for the cloud-gov organization.
+This is a pipeline for testing of lambda functions
