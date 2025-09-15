@@ -10,6 +10,7 @@ session = boto3.Session()
 region = session.region_name
 if region is None:
     session = boto3.Session(region_name="us-west-1")
+    region = session.region_name
 s3_client = session.client("s3")
 es_client = session.client("opensearch")
 
