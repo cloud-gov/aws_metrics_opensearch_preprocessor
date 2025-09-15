@@ -6,10 +6,9 @@ import gzip
 import io
 import os
 
-session = boto3.Session()
-region = session.region_name
-s3_client = session.client("s3")
-es_client = session.client("opensearch")
+region = boto3.Session().region_name
+s3_client = boto3.client("s3")
+es_client = boto3.client("opensearch")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
