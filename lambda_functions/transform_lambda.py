@@ -10,8 +10,8 @@ session = boto3.Session()
 region = session.region_name
 if region is None:
     session = boto3.Session(region_name="us-west-1")
-s3_client = boto3.client("s3")
-es_client = boto3.client("opensearch")
+s3_client = session.client("s3")
+es_client = session.client("opensearch")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
