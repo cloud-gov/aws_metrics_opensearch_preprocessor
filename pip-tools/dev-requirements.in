@@ -1,6 +1,7 @@
 -r ../requirements.txt
 bandit
 black
+typing-extensions
 pip-tools
 pytest
 pytest-cov

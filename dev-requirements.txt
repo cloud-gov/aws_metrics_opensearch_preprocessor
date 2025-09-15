@@ -121,6 +121,8 @@ six==1.17.0
     #   python-dateutil
 stevedore==5.5.0
     # via bandit
+typing-extensions==4.15.0
+    # via -r pip-tools/dev-requirements.in
 urllib3==2.5.0
     # via
     #   -r /Users/jasonagambino/projects/lambda_testing/requirements.txt
