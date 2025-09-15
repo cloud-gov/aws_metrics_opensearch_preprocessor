@@ -3,5 +3,8 @@ bandit
 black
 pip-tools
 pytest
+pytest-cov
+pytest-mock
+moto
 requests-mock
 setuptools

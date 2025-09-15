@@ -141,7 +141,7 @@ main() {
       set_up_environment
       ;;
     bandit)
-      ${python} -m bandit -r cf_auth_proxy
+      ${python} -m bandit -r lambda_functions
       ;;
     black)
       ${python} -m black . "$@"
