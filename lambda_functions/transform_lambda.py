@@ -6,7 +6,10 @@ import gzip
 import io
 import os
 
-region = boto3.Session().region_name
+session = boto3.Session()
+region = session.region_name
+if region is None:
+    session = boto3.Session(region_name="us-west-1")
 s3_client = boto3.client("s3")
 es_client = boto3.client("opensearch")
 
