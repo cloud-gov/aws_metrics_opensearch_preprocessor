@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+shopt -s inherit_errexit 2>/dev/null || true
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+python=${dir}/venv/bin/python
+
+ENVIRONMENT=${ENVIRONMENT:-}
+PORT=${PORT:-8080}
+
+usage() {
+  local me
+  me=$(basename "$0")
+
+  cat <<-EOF
+
+  USAGE: ${me} COMMAND
+
+  Run development workflows.
+
+  Examples:
+
+    # Run the tests once
+    ${me}
+
+    # same as above
+    ${me} tests
+
+    # install dev dependencies in a local virtualenv
+    ${me} set-up-environment
+
+    # add new required packages from requirements.in to requirements.txt
+    ${me} update-requirements
+
+    # upgrade versions for requirements
+    ${me} upgrade-requirements
+
+    # upgrade version for specific requirement
+    ${me} upgrade-requirements <requirement>
+
+EOF
+}
+
+pushd () {
+  # make pushd silent
+  command pushd "$@" > /dev/null
+}
+
+popd () {
+  # make popd silent
+  command popd > /dev/null
+}
+
+update_requirements() {
+  export CUSTOM_COMPILE_COMMAND="./dev update-requirements"
+  $python -m piptools compile \
+    --quiet \
+    --output-file=requirements.txt \
+    pip-tools/requirements.in
+   $python -m piptools compile \
+    --quiet \
+    --output-file=dev-requirements.txt \
+    pip-tools/dev-requirements.in
+}
+
+set_up_ci_environment () {
+  python3 -m venv venv
+  # we need to update pip because the version from apt is too old, and breaks
+  # when we try to install from requirements files later
+  ${python} -m pip install --upgrade pip
+  # do this first to make sure we have piptools
+  ${python} -m pip install -r dev-requirements.txt
+  # do this again for syncs that might involve deletions
+  ${python} -m piptools sync requirements.txt dev-requirements.txt
+}
+
+set_up_environment () {
+  python -m venv venv
+  source venv/bin/activate
+  # do this first to make sure we have piptools
+  ${python} -m pip install --trusted-host pypi.org -r dev-requirements.txt
+  # do this again for syncs that might involve deletions
+  ${python} -m piptools sync requirements.txt dev-requirements.txt
+}
+
+upgrade_requirements() {
+  if [[ $# -ge 1 ]]; then
+    if [[ $# -ge 2 ]]; then
+      echo "can't update more than one package at a time"
+    fi
+    ${python} -m piptools compile --upgrade-package "$1" --output-file requirements.txt pip-tools/requirements.in
+    ${python} -m piptools compile --upgrade-package "$1" --output-file dev-requirements.txt pip-tools/dev-requirements.in
+
+  else
+    ${python} -m piptools compile --upgrade --output-file requirements.txt pip-tools/requirements.in
+    ${python} -m piptools compile --upgrade --output-file dev-requirements.txt pip-tools/dev-requirements.in
+  fi
+}
+
+
+source_env_vars() {
+  set -o allexport
+
+  pushd "${dir}"
+    case $ENVIRONMENT in
+      prod|production)
+        source "prod.env"
+        ;;
+
+      dev)
+        source "dev.env"
+        ;;
+
+      *)
+        source ".env"
+        ;;
+    esac
+  popd
+
+  set +o allexport
+}
+
+
+main() {
+  pushd "${dir}"
+  trap popd exit
+  local command=$1
+  shift
+  case $command in
+    -h)
+      usage
+      ;;
+    update-requirements|update-requirement)
+      update_requirements "$@"
+      ;;
+    upgrade-requirements|upgrade_requirement)
+      upgrade_requirements "$@"
+      ;;
+    set-up-ci-environment)
+      set_up_ci_environment
+      ;;
+    set-up-environment|setup-environment)
+      set_up_environment
+      ;;
+    bandit)
+      ${python} -m bandit -r cf_auth_proxy
+      ;;
+    black)
+      ${python} -m black . "$@"
+      ;;
+    test|tests)
+      ${python} -m piptools sync requirements.txt dev-requirements.txt
+      ${python} -m pytest tests
+      ;;
+    format)
+      ${python} -m black .
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
