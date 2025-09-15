@@ -9,7 +9,7 @@ import os
 
 # Add the src directory to Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(current_dir, "..", "src")
+src_dir = os.path.join(current_dir, "..", "lambda_functions")
 sys.path.insert(0, os.path.abspath(src_dir))
 
 from transform_lambda import (

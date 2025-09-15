@@ -3,6 +3,7 @@
 set -euo pipefail
 shopt -s inherit_errexit
 
+src/dev set-up-ci-environment
 src/dev set-up-environment
 src/dev bandit
 src/dev black --check
