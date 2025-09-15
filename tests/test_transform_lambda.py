@@ -7,12 +7,7 @@ from botocore.stub import Stubber
 import boto3
 import os
 
-# Add the src directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.join(current_dir, "..", "lambda_functions")
-sys.path.insert(0, os.path.abspath(src_dir))
-
-from transform_lambda import (
+from lambda_functions.transform_lambda import (
     lambda_handler,
     process_metric,
     default_keys_to_remove,
@@ -51,8 +46,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.logger"), patch(
-            "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "lambda_functions.transform_lambda.get_resource_tags_from_metric",
+            return_value=mock_tags,
         ):
             # Set up the mock return value
             result = lambda_handler(event, context)
@@ -81,6 +77,9 @@ class TestLambdaHandler:
         assert metric["namespace"] == "AWS/ES"
         assert metric["metric_name"] == "CPUUtilization"
         assert metric["value"] == 85.5
+
+        assert metric["Tags"]["Environment"] == "production"
+        assert metric["Tags"]["Owner"] == "team-alpha"
 
     def test_lambda_handler_multiple_metric_lines(self):
         """Test processing multiple metric lines in one record"""
@@ -114,8 +113,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.logger"), patch(
-            "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "lambda_functions.transform_lambda.get_resource_tags_from_metric",
+            return_value=mock_tags,
         ):
             result = lambda_handler(event, context)
 
@@ -129,6 +129,10 @@ class TestLambdaHandler:
         assert len(output_metrics) == 2
         assert output_metrics[0]["namespace"] == "AWS/ES"
         assert output_metrics[1]["namespace"] == "AWS/S3"
+        assert output_metrics[0]["Tags"]["Environment"] == "production"
+        assert output_metrics[0]["Tags"]["Owner"] == "team-alpha"
+        assert output_metrics[1]["Tags"]["Environment"] == "production"
+        assert output_metrics[1]["Tags"]["Owner"] == "team-alpha"
 
     def test_lambda_handler_multiple_records(self):
         """Test processing multiple records"""
@@ -150,8 +154,9 @@ class TestLambdaHandler:
         event = {"records": records}
         context = MagicMock()
 
-        with patch("transform_lambda.logger"), patch(
-            "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "lambda_functions.transform_lambda.get_resource_tags_from_metric",
+            return_value=mock_tags,
         ):
             result = lambda_handler(event, context)
 
@@ -176,7 +181,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.logger"):
+        with patch("lambda_functions.transform_lambda.logger"):
             result = lambda_handler(event, context)
 
         # Should return empty records list since no valid metrics
@@ -191,7 +196,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.logger") as mock_logger:
+        with patch("lambda_functions.transform_lambda.logger") as mock_logger:
             result = lambda_handler(event, context)
 
         # Should handle gracefully and return empty records
@@ -211,7 +216,8 @@ class TestLambdaHandler:
         mock_tags = {"Environment": "production", "Owner": "team-alpha"}
 
         with patch(
-            "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
+            "lambda_functions.transform_lambda.get_resource_tags_from_metric",
+            return_value=mock_tags,
         ):
             result = process_metric(input_metric)
 
@@ -219,6 +225,9 @@ class TestLambdaHandler:
         assert result["namespace"] == "AWS/S3"
         assert result["metric_name"] == "Duration"
         assert result["value"] == 150.5
+
+        assert result["Tags"]["Environment"] == "production"
+        assert result["Tags"]["Owner"] == "team-alpha"
 
     def test_process_metric_missing_required_fields(self):
         """Test process_metric with missing required fields"""
@@ -290,8 +299,9 @@ class TestLambdaHandler:
         event = {"records": [{"recordId": "test-record", "data": encoded_data}]}
         context = MagicMock()
 
-        with patch("transform_lambda.logger"), patch(
-            "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "lambda_functions.transform_lambda.get_resource_tags_from_metric",
+            return_value=mock_tags,
         ):
             result = lambda_handler(event, context)
 
@@ -329,7 +339,7 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.logger"):
+            with patch("lambda_functions.transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result["Environment"] == "staging"
@@ -357,7 +367,7 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.logger"):
+            with patch("lambda_functions.transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result is None
@@ -377,7 +387,7 @@ class TestLambdaHandler:
         }
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
         fake_tags = {
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},
@@ -389,9 +399,10 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.logger"):
+            with patch("lambda_functions.transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
+        print(result)
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
@@ -411,14 +422,14 @@ class TestLambdaHandler:
         }
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
 
         fake_tags = {"TagList": []}
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.logger"):
+            with patch("lambda_functions.transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result is None

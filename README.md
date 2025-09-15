@@ -1,3 +1,3 @@
-# Lambda Testing pipeline
+# aws metrics opensearch preprocessor pipeline
 
 This is a pipeline for testing of lambda functions
