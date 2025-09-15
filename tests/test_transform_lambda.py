@@ -19,7 +19,6 @@ from transform_lambda import (
     get_resource_tags_from_metric,
     es_client,
     s3_client,
-    region,
 )
 
 
@@ -52,9 +51,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ), patch(
+        with patch("transform_lambda.logger"), patch(
             "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
         ):
             # Set up the mock return value
@@ -117,9 +114,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ), patch(
+        with patch("transform_lambda.logger"), patch(
             "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
         ):
             result = lambda_handler(event, context)
@@ -155,9 +150,7 @@ class TestLambdaHandler:
         event = {"records": records}
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ), patch(
+        with patch("transform_lambda.logger"), patch(
             "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
         ):
             result = lambda_handler(event, context)
@@ -183,9 +176,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ):
+        with patch("transform_lambda.logger"):
             result = lambda_handler(event, context)
 
         # Should return empty records list since no valid metrics
@@ -200,9 +191,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ) as mock_logger:
+        with patch("transform_lambda.logger") as mock_logger:
             result = lambda_handler(event, context)
 
         # Should handle gracefully and return empty records
@@ -221,7 +210,7 @@ class TestLambdaHandler:
         }
         mock_tags = {"Environment": "production", "Owner": "team-alpha"}
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
+        with patch(
             "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
         ):
             result = process_metric(input_metric)
@@ -301,9 +290,7 @@ class TestLambdaHandler:
         event = {"records": [{"recordId": "test-record", "data": encoded_data}]}
         context = MagicMock()
 
-        with patch("transform_lambda.region", "us-west-1"), patch(
-            "transform_lambda.logger"
-        ), patch(
+        with patch("transform_lambda.logger"), patch(
             "transform_lambda.get_resource_tags_from_metric", return_value=mock_tags
         ):
             result = lambda_handler(event, context)
@@ -342,9 +329,7 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.region", "us-west-1"), patch(
-                "transform_lambda.logger"
-            ):
+            with patch("transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result["Environment"] == "staging"
@@ -372,9 +357,7 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.region", "us-west-1"), patch(
-                "transform_lambda.logger"
-            ):
+            with patch("transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result is None
@@ -394,7 +377,7 @@ class TestLambdaHandler:
         }
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:{region}:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
 
         fake_tags = {
             "TagList": [
@@ -407,9 +390,7 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.region", "us-west-1"), patch(
-                "transform_lambda.logger"
-            ):
+            with patch("transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result["Environment"] == "staging"
@@ -431,16 +412,14 @@ class TestLambdaHandler:
         }
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:{region}:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
 
         fake_tags = {"TagList": []}
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
 
         with stubber:
-            with patch("transform_lambda.region", "us-west-1"), patch(
-                "transform_lambda.logger"
-            ):
+            with patch("transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
         assert result is None
