@@ -1,9 +1,10 @@
 -r ../requirements.txt
+pytest
 bandit
 black
 typing-extensions
+exceptiongroup
 pip-tools
-pytest
 pytest-cov
 pytest-mock
 moto
