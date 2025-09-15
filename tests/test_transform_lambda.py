@@ -378,7 +378,8 @@ class TestLambdaHandler:
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
-
+        print("fake")
+        print(fake_arn)
         fake_tags = {
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},

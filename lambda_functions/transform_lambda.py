@@ -106,6 +106,8 @@ def get_resource_tags_from_metric(metric):
             client_id = dimensions.get("ClientId")
             if domain_name.startswith(domain_prefix) and client_id:
                 arn = f"arn:aws-us-gov:es:{region}:{client_id}:domain/{domain_name}"
+                print("real")
+                print(arn)
                 result = get_tags_from_arn(arn)
                 return None if result == {} else result
         return None
