@@ -8,7 +8,8 @@ import os
 
 s3_client = boto3.client("s3")
 es_client = boto3.client("opensearch")
-region = boto3.Session().region_name
+session = boto3.Session()
+region = session.region_name or "us-west-1"
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
