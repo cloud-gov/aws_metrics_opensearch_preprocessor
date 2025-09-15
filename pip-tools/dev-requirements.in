@@ -1,0 +1,7 @@
+-r ../requirements.txt
+bandit
+black
+pip-tools
+pytest
+requests-mock
+setuptools
