@@ -6,9 +6,6 @@ shopt -s inherit_errexit 2>/dev/null || true
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 python=${dir}/venv/bin/python
 
-ENVIRONMENT=${ENVIRONMENT:-}
-PORT=${PORT:-8080}
-
 usage() {
   local me
   me=$(basename "$0")
