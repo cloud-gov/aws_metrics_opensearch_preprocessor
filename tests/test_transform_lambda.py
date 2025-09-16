@@ -20,7 +20,7 @@ dummy_region = "us-gov-west-1"
 
 class TestLambdaHandler:
 
-    def test_lambda_handler_single_metric_line(self):
+    def test_lambda_handler_single_metric_line(self, monkeypatch):
         """Test processing a single metric line"""
         # Sample metric data as newline-delimited JSON
         metric_data = {
@@ -47,9 +47,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch(
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -84,7 +84,7 @@ class TestLambdaHandler:
         assert metric["Tags"]["Environment"] == "production"
         assert metric["Tags"]["Owner"] == "team-alpha"
 
-    def test_lambda_handler_multiple_metric_lines(self):
+    def test_lambda_handler_multiple_metric_lines(self, monkeypatch):
         """Test processing multiple metric lines in one record"""
         metrics = [
             {
@@ -116,9 +116,8 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch(
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -139,7 +138,7 @@ class TestLambdaHandler:
         assert output_metrics[1]["Tags"]["Environment"] == "production"
         assert output_metrics[1]["Tags"]["Owner"] == "team-alpha"
 
-    def test_lambda_handler_multiple_records(self):
+    def test_lambda_handler_multiple_records(self, monkeypatch):
         """Test processing multiple records"""
         records = []
         for i in range(3):
@@ -159,9 +158,8 @@ class TestLambdaHandler:
         event = {"records": records}
         context = MagicMock()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch(
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -172,8 +170,8 @@ class TestLambdaHandler:
             assert record["recordId"] == f"record-{i}"
             assert record["result"] == "Ok"
 
-    def test_lambda_handler_empty_metrics_filtered(self):
-        """Test that records with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), no valid metrics are filtered out"""
+    def test_lambda_handler_empty_metrics_filtered(self, monkeypatch):
+        """Test that records with emmpry metrics, no valid metrics are filtered out"""
         # Invalid metric (missing required fields)
         invalid_metric = {
             "timestamp": 1640995200000,
@@ -187,16 +185,14 @@ class TestLambdaHandler:
         event = {"records": [{"recordId": "invalid-record", "data": encoded_data}]}
 
         context = MagicMock()
-
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"):
             result = lambda_handler(event, context)
 
         # Should return empty records list since no valid metrics
         assert len(result["records"]) == 0
 
-    def test_lambda_handler_malformed_json(self):
+    def test_lambda_handler_malformed_json(self, monkeypatch):
         """Test handling of malformed JSON"""
         malformed_data = "{'invalid': json}"  # Not valid JSON
         encoded_data = base64.b64encode(malformed_data.encode("utf-8")).decode("utf-8")
@@ -205,16 +201,15 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ) as mock_logger:
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger") as mock_logger:
             result = lambda_handler(event, context)
 
         # Should handle gracefully and return empty records
         assert len(result["records"]) == 0
         mock_logger.error.assert_called()
 
-    def test_process_metric_valid(self):
+    def test_process_metric_valid(self, monkeypatch):
         """Test process_metric function with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), valid data"""
         input_metric = {
             "timestamp": 1640995200000,
@@ -226,7 +221,8 @@ class TestLambdaHandler:
         }
         mock_tags = {"Environment": "production", "Owner": "team-alpha"}
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -289,7 +285,7 @@ class TestLambdaHandler:
         expected_keys = ["metric_stream_name", "account_id", "region"]
         assert default_keys_to_remove == expected_keys
 
-    def test_clientid_dimension_removal(self):
+    def test_clientid_dimension_removal(self, monkeypatch):
         """Test that ClientId is removed from dimensions"""
         metric_data = {
             "timestamp": 1640995200000,
@@ -310,9 +306,8 @@ class TestLambdaHandler:
         event = {"records": [{"recordId": "test-record", "data": encoded_data}]}
         context = MagicMock()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch(
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -325,7 +320,7 @@ class TestLambdaHandler:
         assert "InstanceId" in output_metric["dimensions"]
         assert "OtherDim" in output_metric["dimensions"]
 
-    def test_development_environment_es_success(self):
+    def test_development_environment_es_success(self, monkeypatch):
         """Test that environment only accepts development prefix when development environment"""
         metric_data_dev = {
             "timestamp": 1640995200000,
@@ -355,10 +350,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "development"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -372,7 +368,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_development_environment_es_failure(self):
+    def test_development_environment_es_failure(self, monkeypatch):
         """Test that environment only accepts development prefix when development environment"""
         metric_data_staging = {
             "timestamp": 1640995200000,
@@ -402,10 +398,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "development"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -417,7 +414,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_staging_environment_es_success(self):
+    def test_staging_environment_es_success(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
         metric_data_dev = {
             "timestamp": 1640995200000,
@@ -447,10 +444,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -464,7 +462,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_staging_environment_es_failure(self):
+    def test_staging_environment_es_failure(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
         metric_data_staging = {
             "timestamp": 1640995200000,
@@ -494,10 +492,10 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -510,7 +508,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_production_environment_es_success(self):
+    def test_production_environment_es_success(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
         metric_data_production = {
             "timestamp": 1640995200000,
@@ -539,10 +537,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "production"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -556,7 +555,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_production_environment_es_failure(self):
+    def test_production_environment_es_failure(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
         metric_data_production = {
             "timestamp": 1640995200000,
@@ -585,10 +584,10 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -605,7 +604,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_development_environment_s3_success(self):
+    def test_development_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts development prefix when development environment"""
         metric_data_dev = {
             "timestamp": 1640995200000,
@@ -635,10 +634,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "development"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
 
             s3_prefix, domain_prefix = make_prefixes()
@@ -660,7 +660,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_development_environment_s3_failure(self):
+    def test_development_environment_s3_failure(self, monkeypatch):
         """Test that environment only accepts development prefix when development environment"""
         metric_data_staging = {
             "timestamp": 1640995200000,
@@ -690,10 +690,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "development"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -710,7 +711,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_staging_environment_s3_success(self):
+    def test_staging_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
         metric_data_staging = {
             "timestamp": 1640995200000,
@@ -740,10 +741,10 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
 
             s3_prefix, domain_prefix = make_prefixes()
@@ -765,7 +766,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_staging_environment_s3_failure(self):
+    def test_staging_environment_s3_failure(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
         metric_data_staging = {
             "timestamp": 1640995200000,
@@ -795,10 +796,10 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
 
@@ -817,7 +818,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_production_environment_s3_success(self):
+    def test_production_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
         metric_data_production = {
             "timestamp": 1640995200000,
@@ -847,10 +848,10 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "production"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -869,7 +870,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_production_environment_s3_failure(self):
+    def test_production_environment_s3_failure(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
         metric_data_production = {
             "timestamp": 1640995200000,
@@ -899,10 +900,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client), patch.dict(
-            "os.environ", {"ENVIRONMENT": "staging"}
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", "staging")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
         ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
@@ -918,7 +920,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result is None
 
-    def test_s3_tag_retrieval(self):
+    def test_s3_tag_retrieval(self, monkeypatch):
         """Test that s3 tags are returned"""
         metric_data = {
             "timestamp": 1640995200000,
@@ -948,9 +950,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -964,7 +968,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_s3_tags_none(self):
+    def test_s3_tags_none(self, monkeypatch):
         """Test that none is returned when tags are none"""
         metric_data = {
             "timestamp": 1640995200000,
@@ -988,9 +992,10 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=s3_client):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -1002,7 +1007,7 @@ class TestLambdaHandler:
 
         assert result is None
 
-    def test_es_tag_retrieval(self):
+    def test_es_tag_retrieval(self, monkeypatch):
         """Test that es tags are returned"""
         metric_data = {
             "timestamp": 1640995200000,
@@ -1032,9 +1037,10 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -1048,7 +1054,7 @@ class TestLambdaHandler:
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_es_tags_none(self):
+    def test_es_tags_none(self, monkeypatch):
         """Test that none is returned when tags are none"""
         metric_data = {
             "timestamp": 1640995200000,
@@ -1073,9 +1079,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
-            "lambda_functions.transform_lambda.logger"
-        ), patch("boto3.client", return_value=es_client):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
