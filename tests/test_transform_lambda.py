@@ -48,8 +48,7 @@ class TestLambdaHandler:
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
-            return_value=mock_tags,
-        ), patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}, clear=True):
+            return_value=mock_tags):
             # Set up the mock return value
             result = lambda_handler(event, context)
         # Assertions
@@ -311,6 +310,11 @@ class TestLambdaHandler:
         assert "ClientId" not in output_metric["dimensions"]
         assert "InstanceId" in output_metric["dimensions"]
         assert "OtherDim" in output_metric["dimensions"]
+
+    def test_development_environment(self):
+    def test_staging_environment(self):
+    def test_production_environment(self):
+
 
     def test_s3_tag_retrieval(self):
         """Test that s3 tags are returned"""
