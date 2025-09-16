@@ -16,6 +16,7 @@ def lambda_handler(event, context):
     output_records = []
     region = boto3.Session().region_name
     print(region)
+    print("KASPO")
     s3_prefix, domain_prefix = make_prefixes()
     s3_client = boto3.client("s3")
     es_client = boto3.client("opensearch")
