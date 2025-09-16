@@ -14,7 +14,7 @@ EXPECTED_NAMESPACES = ["AWS/S3", "AWS/ES"]
 
 def lambda_handler(event, context):
     output_records = []
-    print(os.environ("AWS_REGION"))
+    print(os.environ.get("AWS_REGION"))
     region = boto3.Session().region_name
     print(region)
     print("KASPO")
