@@ -1,3 +1,3 @@
-import os
+# import os
 
-os.environ.setdefault("AWS_REGION", "us-gov-west-1")
+# os.environ.setdefault("AWS_REGION", "us-gov-west-1")
