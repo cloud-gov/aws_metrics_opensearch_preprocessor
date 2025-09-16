@@ -47,10 +47,12 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
-        ), patch("boto3.Session().region_name", return_value="us-gov-west-1"):
+        ):
             # Set up the mock return value
             result = lambda_handler(event, context)
         # Assertions
@@ -114,7 +116,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -155,7 +159,9 @@ class TestLambdaHandler:
         event = {"records": records}
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -167,7 +173,7 @@ class TestLambdaHandler:
             assert record["result"] == "Ok"
 
     def test_lambda_handler_empty_metrics_filtered(self):
-        """Test that records with no valid metrics are filtered out"""
+        """Test that records with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), no valid metrics are filtered out"""
         # Invalid metric (missing required fields)
         invalid_metric = {
             "timestamp": 1640995200000,
@@ -182,7 +188,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger"):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ):
             result = lambda_handler(event, context)
 
         # Should return empty records list since no valid metrics
@@ -197,7 +205,9 @@ class TestLambdaHandler:
 
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger") as mock_logger:
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ) as mock_logger:
             result = lambda_handler(event, context)
 
         # Should handle gracefully and return empty records
@@ -205,7 +215,7 @@ class TestLambdaHandler:
         mock_logger.error.assert_called()
 
     def test_process_metric_valid(self):
-        """Test process_metric function with valid data"""
+        """Test process_metric function with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), valid data"""
         input_metric = {
             "timestamp": 1640995200000,
             "namespace": "AWS/S3",
@@ -216,7 +226,7 @@ class TestLambdaHandler:
         }
         mock_tags = {"Environment": "production", "Owner": "team-alpha"}
 
-        with patch(
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -231,7 +241,7 @@ class TestLambdaHandler:
         assert result["Tags"]["Owner"] == "team-alpha"
 
     def test_process_metric_missing_required_fields(self):
-        """Test process_metric with missing required fields"""
+        """Test process_metric with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), missing required fields"""
         # Missing metric_name
         invalid_metric = {
             "timestamp": 1640995200000,
@@ -253,7 +263,7 @@ class TestLambdaHandler:
         assert result2 is None
 
     def test_process_metric_missing_namespace(self):
-        """Test process_metric with missing required fields"""
+        """Test process_metric with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), missing required fields"""
         # Missing metric_name
         invalid_namespace = {
             "timestamp": 1640995200000,
@@ -300,7 +310,9 @@ class TestLambdaHandler:
         event = {"records": [{"recordId": "test-record", "data": encoded_data}]}
         context = MagicMock()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
@@ -343,9 +355,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "development"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_dev, dummy_region, "", "", es_client, "cg-broker-dev"
@@ -388,9 +402,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "development"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_staging, dummy_region, "", "", es_client, "cg-broker-dev"
@@ -431,9 +447,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_dev, dummy_region, "", "", es_client, "cg-broker-stg-"
@@ -476,9 +494,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_staging, dummy_region, "", "", es_client, "cg-broker-stg-"
@@ -519,9 +539,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "production"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_production, dummy_region, "", "", es_client, "cg-broker-prd"
@@ -563,9 +585,11 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_production,
@@ -611,9 +635,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "development"}
+        ):
 
             s3_prefix, domain_prefix = make_prefixes()
 
@@ -664,9 +690,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "development"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_staging,
@@ -712,9 +740,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
 
             s3_prefix, domain_prefix = make_prefixes()
 
@@ -765,9 +795,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
 
             result = get_resource_tags_from_metric(
@@ -815,9 +847,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "production"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_production,
@@ -865,9 +899,11 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client), patch.dict(
+            "os.environ", {"ENVIRONMENT": "staging"}
+        ):
             s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
                 metric_data_production,
@@ -912,9 +948,9 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -952,9 +988,9 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=s3_client):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -996,9 +1032,9 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
@@ -1037,9 +1073,9 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ):
+        with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), patch(
+            "lambda_functions.transform_lambda.logger"
+        ), patch("boto3.client", return_value=es_client):
             result = get_resource_tags_from_metric(
                 metric_data,
                 dummy_region,
