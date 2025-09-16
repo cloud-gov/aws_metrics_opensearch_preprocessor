@@ -12,9 +12,10 @@ from lambda_functions.transform_lambda import (
     process_metric,
     default_keys_to_remove,
     get_resource_tags_from_metric,
-    es_client,
-    s3_client,
+    make_prefixes,
 )
+
+dummy_region = "us-gov-west-1"
 
 
 class TestLambdaHandler:
@@ -219,7 +220,7 @@ class TestLambdaHandler:
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
-            result = process_metric(input_metric)
+            result = process_metric(input_metric, dummy_region, "", "", "", "")
 
         assert result is not None
         assert result["namespace"] == "AWS/S3"
@@ -238,7 +239,7 @@ class TestLambdaHandler:
             "value": 100,
         }
 
-        result = process_metric(invalid_metric)
+        result = process_metric(invalid_metric, dummy_region, "", "", "", "")
         assert result is None
 
         # Missing value
@@ -248,7 +249,7 @@ class TestLambdaHandler:
             "metric_name": "ES",
         }
 
-        result2 = process_metric(invalid_metric2)
+        result2 = process_metric(invalid_metric2, dummy_region, "", "", "", "")
         assert result2 is None
 
     def test_process_metric_missing_namespace(self):
@@ -260,7 +261,7 @@ class TestLambdaHandler:
             "value": 100,
         }
 
-        result = process_metric(invalid_namespace)
+        result = process_metric(invalid_namespace, dummy_region, "", "", "", "")
         assert result is None
 
         # Missing value
@@ -270,7 +271,7 @@ class TestLambdaHandler:
             "metric_name": "TestMetric",
         }
 
-        result2 = process_metric(invalid_metric2)
+        result2 = process_metric(invalid_metric2, dummy_region, "", "", "", "")
         assert result2 is None
 
     def test_key_removal_configuration(self):
@@ -326,6 +327,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
         fake_tags = {
@@ -337,14 +341,18 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "development"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_dev, dummy_region, "", "", es_client, "cg-broker-dev"
+            )
 
-                result = get_resource_tags_from_metric(metric_data_dev)
-
+        assert s3_prefix == "development-cg-"
+        assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
@@ -364,6 +372,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
         fake_tags = {
@@ -375,22 +386,18 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "development"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_staging, dummy_region, "", "", es_client, "cg-broker-dev"
+            )
 
-                import lambda_functions
-                import importlib
-
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_staging
-                    )
-                )
-
+        assert s3_prefix == "development-cg-"
+        assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
         assert result is None
 
@@ -408,6 +415,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
         fake_tags = {
@@ -419,13 +429,18 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
-                result = get_resource_tags_from_metric(metric_data_dev)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_dev, dummy_region, "", "", es_client, "cg-broker-stg-"
+            )
 
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
@@ -445,6 +460,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
         fake_tags = {
@@ -456,21 +474,18 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_staging, dummy_region, "", "", es_client, "cg-broker-stg-"
+            )
 
-                import lambda_functions
-                import importlib
-
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_staging
-                    )
-                )
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
         assert result is None
@@ -489,6 +504,8 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
         fake_tags = {
@@ -500,13 +517,18 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "production"}
-            ):
-                result = get_resource_tags_from_metric(metric_data_production)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_production, dummy_region, "", "", es_client, "cg-broker-prd"
+            )
 
+        assert s3_prefix == "cg-"
+        assert domain_prefix == "cg-broker-prd-"
         # if tags are returned environment is correct
         assert result["Environment"] == "production"
         assert result["Testing"] == "enabled"
@@ -526,6 +548,8 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
         fake_tags = {
@@ -537,22 +561,23 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_production,
+                dummy_region,
+                "",
+                "",
+                es_client,
+                "cg-broker-staging",
+            )
 
-                import lambda_functions
-                import importlib
-
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_production
-                    )
-                )
-
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
         assert result is None
 
@@ -569,6 +594,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "development-cg-testing-cheats-enabled"
 
@@ -581,13 +609,25 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "development"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
 
-                result = get_resource_tags_from_metric(metric_data_dev)
+            s3_prefix, domain_prefix = make_prefixes()
+
+            result = get_resource_tags_from_metric(
+                metric_data_dev,
+                dummy_region,
+                s3_client,
+                "development-cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
+
+        assert s3_prefix == "development-cg-"
+        assert domain_prefix == "cg-broker-dev-"
 
         # if tags are returned environment is correct
         assert result["Environment"] == "staging"
@@ -607,6 +647,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "staging-cg-testing-cheats-enabled"
 
@@ -619,22 +662,23 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "development"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_staging,
+                dummy_region,
+                s3_client,
+                "development-cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
 
-                import lambda_functions
-                import importlib
-
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_staging
-                    )
-                )
-
+        assert s3_prefix == "development-cg-"
+        assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
         assert result is None
 
@@ -651,6 +695,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "staging-cg-testing-cheats-enabled"
 
@@ -663,12 +710,25 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
-                result = get_resource_tags_from_metric(metric_data_staging)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+
+            s3_prefix, domain_prefix = make_prefixes()
+
+            result = get_resource_tags_from_metric(
+                metric_data_staging,
+                dummy_region,
+                s3_client,
+                "staging-cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
+
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
         assert result["Environment"] == "staging"
@@ -688,6 +748,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
 
@@ -700,21 +763,24 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+            s3_prefix, domain_prefix = make_prefixes()
 
-                import lambda_functions
-                import importlib
+            result = get_resource_tags_from_metric(
+                metric_data_staging,
+                dummy_region,
+                s3_client,
+                "staging-cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
 
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_staging
-                    )
-                )
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
         assert result is None
@@ -732,6 +798,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
 
@@ -744,13 +813,23 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "production"}
-            ):
-                result = get_resource_tags_from_metric(metric_data_production)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_production,
+                dummy_region,
+                s3_client,
+                "cg-",
+                "es_client",
+                "",
+            )
 
+        assert s3_prefix == "cg-"
+        assert domain_prefix == "cg-broker-prd-"
         # if tags are returned environment is correct
         assert result["Environment"] == "production"
         assert result["Testing"] == "enabled"
@@ -769,6 +848,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
 
@@ -781,22 +863,22 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
-                "os.environ", {"ENVIRONMENT": "staging"}
-            ):
-
-                import lambda_functions
-                import importlib
-
-                importlib.reload(lambda_functions)
-                result = (
-                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
-                        metric_data_production
-                    )
-                )
-
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ), patch.dict("os.environ", {"ENVIRONMENT": "staging"}):
+            s3_prefix, domain_prefix = make_prefixes()
+            result = get_resource_tags_from_metric(
+                metric_data_production,
+                dummy_region,
+                s3_client,
+                "staging-cg-",
+                "es_client",
+                "",
+            )
+        assert s3_prefix == "staging-cg-"
+        assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
         assert result is None
 
@@ -813,6 +895,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
 
@@ -825,10 +910,19 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"):
-                result = get_resource_tags_from_metric(metric_data)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ):
+            result = get_resource_tags_from_metric(
+                metric_data,
+                dummy_region,
+                s3_client,
+                "cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
 
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
@@ -847,16 +941,28 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3")
+
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
 
         fake_tags = {"TagSet": []}
         expected_param_for_stub = {"Bucket": fake_bucket}
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"):
-                result = get_resource_tags_from_metric(metric_data)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=s3_client
+        ):
+            result = get_resource_tags_from_metric(
+                metric_data,
+                dummy_region,
+                s3_client,
+                "cg-",
+                "es_client",
+                "cg-broker-dev",
+            )
 
         assert result is None
 
@@ -874,6 +980,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
         fake_tags = {
@@ -885,10 +994,19 @@ class TestLambdaHandler:
         }
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"):
-                result = get_resource_tags_from_metric(metric_data)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ):
+            result = get_resource_tags_from_metric(
+                metric_data,
+                dummy_region,
+                "s3_client",
+                "cg-",
+                es_client,
+                "cg-broker",
+            )
 
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
@@ -908,15 +1026,27 @@ class TestLambdaHandler:
             "value": 100,
         }
 
+        # Create a stubbed es client
+        es_client = boto3.client("es")
+
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
 
         fake_tags = {"TagList": []}
         expected_param_for_stub = {"ARN": fake_arn}
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        stubber.activate()
 
-        with stubber:
-            with patch("lambda_functions.transform_lambda.logger"):
-                result = get_resource_tags_from_metric(metric_data)
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=es_client
+        ):
+            result = get_resource_tags_from_metric(
+                metric_data,
+                dummy_region,
+                "s3_client",
+                "cg-",
+                es_client,
+                "cg-broker",
+            )
 
         assert result is None
