@@ -340,7 +340,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
@@ -387,7 +387,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
@@ -432,7 +432,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
@@ -479,7 +479,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
@@ -525,7 +525,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
         fake_tags = {
@@ -571,7 +571,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
         fake_tags = {
@@ -619,7 +619,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "development-cg-testing-cheats-enabled"
@@ -674,7 +674,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "staging-cg-testing-cheats-enabled"
@@ -724,7 +724,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "staging-cg-testing-cheats-enabled"
@@ -779,7 +779,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
@@ -831,7 +831,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
@@ -883,7 +883,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
@@ -932,7 +932,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
@@ -978,7 +978,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed s3 client
-        s3_client = boto3.client("s3")
+        s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
         fake_bucket = "cg-testing-cheats-enabled"
@@ -1017,7 +1017,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
@@ -1063,7 +1063,7 @@ class TestLambdaHandler:
         }
 
         # Create a stubbed es client
-        es_client = boto3.client("es")
+        es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
         fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
