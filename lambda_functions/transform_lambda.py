@@ -120,8 +120,8 @@ def get_resource_tags_from_metric(
                 result = get_tags_from_arn(arn, es_client)
                 return None if result == {} else result
         return None
-    except Exception:
-        logger.error("Error with Arn")
+    except Exception as e:
+        logger.error("Error with getting tags for resource " + {e})
         return None
 
 
