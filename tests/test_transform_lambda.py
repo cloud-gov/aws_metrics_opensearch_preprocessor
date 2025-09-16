@@ -50,7 +50,7 @@ class TestLambdaHandler:
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
-        ):
+        ), patch("boto3.Session().region_name", return_value="us-gov-west-1"):
             # Set up the mock return value
             result = lambda_handler(event, context)
         # Assertions
