@@ -16,17 +16,6 @@ logger.setLevel(logging.INFO)
 default_keys_to_remove = ["metric_stream_name", "account_id", "region"]
 nested_keys_to_remove = []
 EXPECTED_NAMESPACES = ["AWS/S3", "AWS/ES"]
-environment = os.environ.get("ENVIRONMENT", "unknown")
-
-# Prefix setup zone
-s3_prefix = f"{environment}-cg-" if environment in ["development", "staging"] else "cg-"
-domain_prefix = "cg-broker-"
-if environment == "production":
-    domain_prefix = domain_prefix + "prd-"
-if environment == "staging":
-    domain_prefix = domain_prefix + "stg-"
-if environment == "development":
-    domain_prefix = domain_prefix + "dev-"
 
 
 def lambda_handler(event, context):
@@ -92,6 +81,21 @@ def process_metric(metric):
 
 def get_resource_tags_from_metric(metric):
     try:
+        environment = os.environ.get("ENVIRONMENT", "unknown")
+        if environment == "unknown":
+            RuntimeError("environment is required")
+
+        # Prefix setup zone
+        s3_prefix = (
+            f"{environment}-cg-" if environment in ["development", "staging"] else "cg-"
+        )
+        domain_prefix = "cg-broker-"
+        if environment == "production":
+            domain_prefix = domain_prefix + "prd-"
+        if environment == "staging":
+            domain_prefix = domain_prefix + "stg-"
+        if environment == "development":
+            domain_prefix = domain_prefix + "dev-"
         namespace = metric.get("namespace")
         dimensions = metric.get("dimensions", {})
         if namespace == "AWS/S3":

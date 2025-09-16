@@ -48,7 +48,8 @@ class TestLambdaHandler:
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
-            return_value=mock_tags):
+            return_value=mock_tags,
+        ):
             # Set up the mock return value
             result = lambda_handler(event, context)
         # Assertions
@@ -311,10 +312,493 @@ class TestLambdaHandler:
         assert "InstanceId" in output_metric["dimensions"]
         assert "OtherDim" in output_metric["dimensions"]
 
-    def test_development_environment(self):
-    def test_staging_environment(self):
-    def test_production_environment(self):
+    def test_development_environment_es_success(self):
+        """Test that environment only accepts development prefix when development environment"""
+        metric_data_dev = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-dev-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
 
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "development"}
+            ):
+
+                result = get_resource_tags_from_metric(metric_data_dev)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "staging"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_development_environment_es_failure(self):
+        """Test that environment only accepts development prefix when development environment"""
+        metric_data_staging = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-staging-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "development"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_staging
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
+
+    def test_staging_environment_es_success(self):
+        """Test that environment only accepts staging prefix when staging environment"""
+        metric_data_dev = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-stg-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+                result = get_resource_tags_from_metric(metric_data_dev)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "staging"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_staging_environment_es_failure(self):
+        """Test that environment only accepts staging prefix when staging environment"""
+        metric_data_staging = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-production-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_staging
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
+
+    def test_production_environment_es_success(self):
+        """Test that environment only accepts production prefix when production environment"""
+        metric_data_production = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-prd-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "production"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "production"}
+            ):
+                result = get_resource_tags_from_metric(metric_data_production)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "production"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_production_environment_es_failure(self):
+        """Test that environment only accepts production prefix when production environment"""
+        metric_data_production = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/ES",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "DomainName": "cg-broker-production-jason-test",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(es_client)
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "production"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ARN": fake_arn}
+        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_production
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
+
+    def test_development_environment_s3_success(self):
+        """Test that environment only accepts development prefix when development environment"""
+        metric_data_dev = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "development-cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "development-cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "development"}
+            ):
+
+                result = get_resource_tags_from_metric(metric_data_dev)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "staging"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_development_environment_s3_failure(self):
+        """Test that environment only accepts development prefix when development environment"""
+        metric_data_staging = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "staging-cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "staging-cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "development"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_staging
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
+
+    def test_staging_environment_s3_success(self):
+        """Test that environment only accepts staging prefix when staging environment"""
+        metric_data_staging = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "staging-cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "staging-cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+                result = get_resource_tags_from_metric(metric_data_staging)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "staging"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_staging_environment_s3_failure(self):
+        """Test that environment only accepts staging prefix when staging environment"""
+        metric_data_staging = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_staging
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
+
+    def test_production_environment_s3_success(self):
+        """Test that environment only accepts production prefix when production environment"""
+        metric_data_production = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "production"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "production"}
+            ):
+                result = get_resource_tags_from_metric(metric_data_production)
+
+        # if tags are returned environment is correct
+        assert result["Environment"] == "production"
+        assert result["Testing"] == "enabled"
+        assert result["organization"] == "cloudgovtests"
+
+    def test_production_environment_s3_failure(self):
+        """Test that environment only accepts production prefix when production environment"""
+        metric_data_production = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/S3",
+            "metric_name": "TestMetric",
+            "dimensions": {
+                "InstanceId": "i-123",
+                "BucketName": "cg-testing-cheats-enabled",
+            },
+            "value": 100,
+        }
+
+        stubber = Stubber(s3_client)
+        fake_bucket = "cg-testing-cheats-enabled"
+
+        fake_tags = {
+            "TagSet": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "organization", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
+
+        with stubber:
+            with patch("lambda_functions.transform_lambda.logger"), patch.dict(
+                "os.environ", {"ENVIRONMENT": "staging"}
+            ):
+
+                import lambda_functions
+                import importlib
+
+                importlib.reload(lambda_functions)
+                result = (
+                    lambda_functions.transform_lambda.get_resource_tags_from_metric(
+                        metric_data_production
+                    )
+                )
+
+        # if tags are returned environment is correct
+        assert result is None
 
     def test_s3_tag_retrieval(self):
         """Test that s3 tags are returned"""
@@ -406,7 +890,6 @@ class TestLambdaHandler:
             with patch("lambda_functions.transform_lambda.logger"):
                 result = get_resource_tags_from_metric(metric_data)
 
-        print(result)
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
