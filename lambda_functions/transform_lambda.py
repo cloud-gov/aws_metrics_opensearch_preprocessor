@@ -15,9 +15,9 @@ EXPECTED_NAMESPACES = ["AWS/S3", "AWS/ES"]
 def lambda_handler(event, context):
     output_records = []
     region = boto3.Session().region_name or os.environ.get("AWS_REGION")
-    s3_prefix, domain_prefix = make_prefixes()
-    s3_client = boto3.client("s3")
-    es_client = boto3.client("opensearch")
+    s3_prefix, domain_prefix = make_prefixes(region)
+    s3_client = boto3.client("s3", region=region)
+    es_client = boto3.client("opensearch", region=region)
     try:
         for record in event["records"]:
             pre_json_value = base64.b64decode(record["data"])
