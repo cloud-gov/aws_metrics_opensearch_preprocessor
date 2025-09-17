@@ -218,3 +218,7 @@ Thumbs.db
 # System and Miscellaneous
 $RECYCLE.BIN/
 $tf/
+
+__pycache__
+.pytest_cache
+venv

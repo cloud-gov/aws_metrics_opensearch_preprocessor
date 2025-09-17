@@ -1,0 +1,54 @@
+jobs:
+
+- name: reconfigure
+  serial: true
+  plan:
+  - get: src
+    params: {depth: 1}
+    trigger: true
+  - set_pipeline: self
+    file: src/ci/pipeline.yml
+
+- name: test-metric-lambda
+  plan:
+    - in_parallel:
+      - get: src
+        params: {depth: 1}
+        trigger: true
+        passed: [reconfigure]
+      - get: general-task
+    - task: test
+      image: general-task
+      config:
+        inputs:
+          - name: src
+        platform: linux
+        run:
+          path: src/ci/metric_lambda_test.sh
+
+
+
+
+##########################
+#  RESOURCES
+
+resources:
+
+- name: src
+  type: git
+  icon: github-circle
+  check_every: 10s
+  source:
+    uri: git@github.com:cloud-gov/aws_metrics_opensearch_preprocessor.git
+    branch: lambda-pipeline
+    commit_verification_keys: ((cloud-gov-pgp-keys))
+    private_key: ((cg-ci-bot-sshkey.private_key))
+
+- name: general-task
+  type: registry-image
+  source:
+    aws_access_key_id: ((ecr_aws_key))
+    aws_secret_access_key: ((ecr_aws_secret))
+    repository: general-task
+    aws_region: us-gov-west-1
+    tag: latest
