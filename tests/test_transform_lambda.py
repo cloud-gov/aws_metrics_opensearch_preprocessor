@@ -3,6 +3,7 @@ import base64
 from unittest.mock import patch, MagicMock
 from botocore.stub import Stubber
 import boto3
+import pytest
 
 from lambda_functions.transform_lambda import (
     lambda_handler,
@@ -317,15 +318,32 @@ class TestLambdaHandler:
         assert "InstanceId" in output_metric["dimensions"]
         assert "OtherDim" in output_metric["dimensions"]
 
-    def test_development_environment_es_success(self, monkeypatch):
-        """Test that environment only accepts development prefix when development environment"""
-        metric_data_dev = {
+    @pytest.mark.parametrize(
+        "environment, expected_s3_prefix, expected_domain_prefix",
+        [
+            pytest.param("development", "development-cg-", "cg-broker-dev-"),
+            pytest.param("staging", "staging-cg-", "cg-broker-stg-"),
+            pytest.param("production", "cg-", "cg-broker-prd-"),
+        ],
+    )
+    def test_get_resource_tags_from_metric_es_success(
+        self, monkeypatch, environment, expected_s3_prefix, expected_domain_prefix
+    ):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", environment)
+
+        s3_prefix, domain_prefix = make_prefixes()
+        assert s3_prefix == expected_s3_prefix
+        assert domain_prefix == expected_domain_prefix
+
+        """Test that environment only accepts environment prefix when correct environment"""
+        metric_data = {
             "timestamp": 1640995200000,
             "namespace": "AWS/ES",
             "metric_name": "TestMetric",
             "dimensions": {
                 "InstanceId": "i-123",
-                "DomainName": "cg-broker-dev-jason-test",
+                "DomainName": f"{domain_prefix}-jason-test",
                 "ClientId": 123456,
             },
             "value": 100,
@@ -335,10 +353,10 @@ class TestLambdaHandler:
         es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
         fake_tags = {
             "TagList": [
-                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
                 {"Key": "organization", "Value": "cloudgovtests"},
             ]
@@ -347,33 +365,45 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "development")
-
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=es_client
         ):
-            s3_prefix, domain_prefix = make_prefixes()
+
             result = get_resource_tags_from_metric(
-                metric_data_dev, dummy_region, "", "", es_client, "cg-broker-dev"
+                metric_data, dummy_region, "", "", es_client, expected_domain_prefix
             )
 
-        assert s3_prefix == "development-cg-"
-        assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
-        assert result["Environment"] == "staging"
+        assert result["Environment"] == environment
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_development_environment_es_failure(self, monkeypatch):
-        """Test that environment only accepts development prefix when development environment"""
-        metric_data_staging = {
+    @pytest.mark.parametrize(
+        "environment, expected_s3_prefix, expected_domain_prefix",
+        [
+            pytest.param("development", "cg-", "cg-broker-prd-"),
+            pytest.param("staging", "cg-", "cg-broker-prd-"),
+            pytest.param("production", "development-cg-", "cg-broker-dev-"),
+        ],
+    )
+    def test_get_resource_tags_from_metric_es_failure(
+        self, monkeypatch, environment, expected_s3_prefix, expected_domain_prefix
+    ):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", environment)
+
+        s3_prefix, domain_prefix = make_prefixes()
+        assert s3_prefix != expected_s3_prefix
+        assert domain_prefix != expected_domain_prefix
+
+        """Test that environment will not accept the wrong prefix if wrong environment"""
+        metric_data = {
             "timestamp": 1640995200000,
             "namespace": "AWS/ES",
             "metric_name": "TestMetric",
             "dimensions": {
                 "InstanceId": "i-123",
-                "DomainName": "cg-broker-staging-jason-test",
+                "DomainName": f"{domain_prefix}-jason-test",
                 "ClientId": 123456,
             },
             "value": 100,
@@ -383,10 +413,10 @@ class TestLambdaHandler:
         es_client = boto3.client("es", region_name=dummy_region)
 
         stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
+        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data['dimensions']['ClientId']}:domain/{metric_data['dimensions']['DomainName']}"
         fake_tags = {
             "TagList": [
-                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
                 {"Key": "organization", "Value": "cloudgovtests"},
             ]
@@ -395,221 +425,102 @@ class TestLambdaHandler:
         stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "development")
-
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=es_client
         ):
-            s3_prefix, domain_prefix = make_prefixes()
+
             result = get_resource_tags_from_metric(
-                metric_data_staging, dummy_region, "", "", es_client, "cg-broker-dev"
+                metric_data, dummy_region, "", "", es_client, expected_domain_prefix
             )
-
-        assert s3_prefix == "development-cg-"
-        assert domain_prefix == "cg-broker-dev-"
-        # if tags are returned environment is correct
-        assert result == {}
-
-    def test_staging_environment_es_success(self, monkeypatch):
-        """Test that environment only accepts staging prefix when staging environment"""
-        metric_data_dev = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/ES",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "DomainName": "cg-broker-stg-jason-test",
-                "ClientId": 123456,
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed es client
-        es_client = boto3.client("es", region_name=dummy_region)
-
-        stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_dev['dimensions']['ClientId']}:domain/{metric_data_dev['dimensions']['DomainName']}"
-        fake_tags = {
-            "TagList": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"ARN": fake_arn}
-        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_dev, dummy_region, "", "", es_client, "cg-broker-stg-"
-            )
-
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
-        # if tags are returned environment is correct
-        assert result["Environment"] == "staging"
-        assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
-
-    def test_staging_environment_es_failure(self, monkeypatch):
-        """Test that environment only accepts staging prefix when staging environment"""
-        metric_data_staging = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/ES",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "DomainName": "cg-broker-production-jason-test",
-                "ClientId": 123456,
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed es client
-        es_client = boto3.client("es", region_name=dummy_region)
-
-        stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_staging['dimensions']['ClientId']}:domain/{metric_data_staging['dimensions']['DomainName']}"
-        fake_tags = {
-            "TagList": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"ARN": fake_arn}
-        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_staging, dummy_region, "", "", es_client, "cg-broker-stg-"
-            )
-
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
         assert result == {}
 
-    def test_production_environment_es_success(self, monkeypatch):
-        """Test that environment only accepts production prefix when production environment"""
-        metric_data_production = {
+    @pytest.mark.parametrize(
+        "environment, expected_s3_prefix, expected_domain_prefix",
+        [
+            pytest.param("development", "development-cg-", "cg-broker-dev-"),
+            pytest.param("staging", "staging-cg-", "cg-broker-stg-"),
+            pytest.param("production", "cg-", "cg-broker-prd-"),
+        ],
+    )
+    def test_get_resource_tags_from_metric_s3_success(
+        self, monkeypatch, environment, expected_s3_prefix, expected_domain_prefix
+    ):
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ENVIRONMENT", environment)
+
+        s3_prefix, domain_prefix = make_prefixes()
+        assert s3_prefix == expected_s3_prefix
+        assert domain_prefix == expected_domain_prefix
+
+        """Test that environment only accepts environment prefix that match environment"""
+        metric_data = {
             "timestamp": 1640995200000,
-            "namespace": "AWS/ES",
+            "namespace": "AWS/S3",
             "metric_name": "TestMetric",
             "dimensions": {
                 "InstanceId": "i-123",
-                "DomainName": "cg-broker-prd-jason-test",
-                "ClientId": 123456,
+                "BucketName": f"{s3_prefix}testing-cheats-enabled",
             },
             "value": 100,
         }
 
-        # Create a stubbed es client
-        es_client = boto3.client("es", region_name=dummy_region)
-        stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
+        # Create a stubbed s3 client
+        s3_client = boto3.client("s3", region_name=dummy_region)
+
+        stubber = Stubber(s3_client)
+        fake_bucket = f"{expected_s3_prefix}testing-cheats-enabled"
+
         fake_tags = {
-            "TagList": [
-                {"Key": "Environment", "Value": "production"},
+            "TagSet": [
+                {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
                 {"Key": "organization", "Value": "cloudgovtests"},
             ]
         }
-        expected_param_for_stub = {"ARN": fake_arn}
-        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
+        expected_param_for_stub = {"Bucket": fake_bucket}
+        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "production")
-
         with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
+            "boto3.client", return_value=s3_client
         ):
-            s3_prefix, domain_prefix = make_prefixes()
             result = get_resource_tags_from_metric(
-                metric_data_production, dummy_region, "", "", es_client, "cg-broker-prd"
+                metric_data, dummy_region, s3_client, s3_prefix, "", ""
             )
 
-        assert s3_prefix == "cg-"
-        assert domain_prefix == "cg-broker-prd-"
         # if tags are returned environment is correct
-        assert result["Environment"] == "production"
+        assert result["Environment"] == environment
         assert result["Testing"] == "enabled"
         assert result["organization"] == "cloudgovtests"
 
-    def test_production_environment_es_failure(self, monkeypatch):
-        """Test that environment only accepts production prefix when production environment"""
-        metric_data_production = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/ES",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "DomainName": "cg-broker-production-jason-test",
-                "ClientId": 123456,
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed es client
-        es_client = boto3.client("es", region_name=dummy_region)
-        stubber = Stubber(es_client)
-        fake_arn = f"arn:aws-us-gov:es:us-gov-west-1:{metric_data_production['dimensions']['ClientId']}:domain/{metric_data_production['dimensions']['DomainName']}"
-        fake_tags = {
-            "TagList": [
-                {"Key": "Environment", "Value": "production"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"ARN": fake_arn}
-        stubber.add_response("list_tags", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
+    @pytest.mark.parametrize(
+        "environment, expected_s3_prefix, expected_domain_prefix",
+        [
+            pytest.param("development", "cg-", "cg-broker-prd-"),
+            pytest.param("staging", "cg-", "cg-broker-prd-"),
+            pytest.param("production", "development-cg-", "cg-broker-dev-"),
+        ],
+    )
+    def test_get_resource_tags_from_metric_s3_failure(
+        self, monkeypatch, environment, expected_s3_prefix, expected_domain_prefix
+    ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=es_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_production,
-                dummy_region,
-                "",
-                "",
-                es_client,
-                "cg-broker-staging",
-            )
+        monkeypatch.setenv("ENVIRONMENT", environment)
 
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
-        # if tags are returned environment is correct
-        assert result == {}
+        s3_prefix, domain_prefix = make_prefixes()
+        assert s3_prefix != expected_s3_prefix
+        assert domain_prefix != expected_domain_prefix
 
-    def test_development_environment_s3_success(self, monkeypatch):
-        """Test that environment only accepts development prefix when development environment"""
-        metric_data_dev = {
+        """Test that environment only accepts environment prefix that match environment"""
+        metric_data = {
             "timestamp": 1640995200000,
             "namespace": "AWS/S3",
             "metric_name": "TestMetric",
             "dimensions": {
                 "InstanceId": "i-123",
-                "BucketName": "development-cg-testing-cheats-enabled",
+                "BucketName": f"{s3_prefix}testing-cheats-enabled",
             },
             "value": 100,
         }
@@ -618,11 +529,11 @@ class TestLambdaHandler:
         s3_client = boto3.client("s3", region_name=dummy_region)
 
         stubber = Stubber(s3_client)
-        fake_bucket = "development-cg-testing-cheats-enabled"
+        fake_bucket = f"{expected_s3_prefix}testing-cheats-enabled"
 
         fake_tags = {
             "TagSet": [
-                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
                 {"Key": "organization", "Value": "cloudgovtests"},
             ]
@@ -631,289 +542,13 @@ class TestLambdaHandler:
         stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
         stubber.activate()
 
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "development")
-
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=s3_client
         ):
-
-            s3_prefix, domain_prefix = make_prefixes()
-
             result = get_resource_tags_from_metric(
-                metric_data_dev,
-                dummy_region,
-                s3_client,
-                "development-cg-",
-                "es_client",
-                "cg-broker-dev",
+                metric_data, dummy_region, s3_client, s3_prefix, "", ""
             )
 
-        assert s3_prefix == "development-cg-"
-        assert domain_prefix == "cg-broker-dev-"
-
-        # if tags are returned environment is correct
-        assert result["Environment"] == "staging"
-        assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
-
-    def test_development_environment_s3_failure(self, monkeypatch):
-        """Test that environment only accepts development prefix when development environment"""
-        metric_data_staging = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/S3",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "BucketName": "staging-cg-testing-cheats-enabled",
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed s3 client
-        s3_client = boto3.client("s3", region_name=dummy_region)
-
-        stubber = Stubber(s3_client)
-        fake_bucket = "staging-cg-testing-cheats-enabled"
-
-        fake_tags = {
-            "TagSet": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"Bucket": fake_bucket}
-        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "development")
-
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_staging,
-                dummy_region,
-                s3_client,
-                "development-cg-",
-                "es_client",
-                "cg-broker-dev",
-            )
-
-        assert s3_prefix == "development-cg-"
-        assert domain_prefix == "cg-broker-dev-"
-        # if tags are returned environment is correct
-        assert result == {}
-
-    def test_staging_environment_s3_success(self, monkeypatch):
-        """Test that environment only accepts staging prefix when staging environment"""
-        metric_data_staging = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/S3",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "BucketName": "staging-cg-testing-cheats-enabled",
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed s3 client
-        s3_client = boto3.client("s3", region_name=dummy_region)
-
-        stubber = Stubber(s3_client)
-        fake_bucket = "staging-cg-testing-cheats-enabled"
-
-        fake_tags = {
-            "TagSet": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"Bucket": fake_bucket}
-        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
-
-            s3_prefix, domain_prefix = make_prefixes()
-
-            result = get_resource_tags_from_metric(
-                metric_data_staging,
-                dummy_region,
-                s3_client,
-                "staging-cg-",
-                "es_client",
-                "cg-broker-dev",
-            )
-
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
-
-        # if tags are returned environment is correct
-        assert result["Environment"] == "staging"
-        assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
-
-    def test_staging_environment_s3_failure(self, monkeypatch):
-        """Test that environment only accepts staging prefix when staging environment"""
-        metric_data_staging = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/S3",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "BucketName": "cg-testing-cheats-enabled",
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed s3 client
-        s3_client = boto3.client("s3", region_name=dummy_region)
-
-        stubber = Stubber(s3_client)
-        fake_bucket = "cg-testing-cheats-enabled"
-
-        fake_tags = {
-            "TagSet": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"Bucket": fake_bucket}
-        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-
-            result = get_resource_tags_from_metric(
-                metric_data_staging,
-                dummy_region,
-                s3_client,
-                "staging-cg-",
-                "es_client",
-                "cg-broker-dev",
-            )
-
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
-
-        # if tags are returned environment is correct
-        assert result == {}
-
-    def test_production_environment_s3_success(self, monkeypatch):
-        """Test that environment only accepts production prefix when production environment"""
-        metric_data_production = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/S3",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "BucketName": "cg-testing-cheats-enabled",
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed s3 client
-        s3_client = boto3.client("s3", region_name=dummy_region)
-
-        stubber = Stubber(s3_client)
-        fake_bucket = "cg-testing-cheats-enabled"
-
-        fake_tags = {
-            "TagSet": [
-                {"Key": "Environment", "Value": "production"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"Bucket": fake_bucket}
-        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "production")
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_production,
-                dummy_region,
-                s3_client,
-                "cg-",
-                "es_client",
-                "",
-            )
-
-        assert s3_prefix == "cg-"
-        assert domain_prefix == "cg-broker-prd-"
-        # if tags are returned environment is correct
-        assert result["Environment"] == "production"
-        assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
-
-    def test_production_environment_s3_failure(self, monkeypatch):
-        """Test that environment only accepts production prefix when production environment"""
-        metric_data_production = {
-            "timestamp": 1640995200000,
-            "namespace": "AWS/S3",
-            "metric_name": "TestMetric",
-            "dimensions": {
-                "InstanceId": "i-123",
-                "BucketName": "cg-testing-cheats-enabled",
-            },
-            "value": 100,
-        }
-
-        # Create a stubbed s3 client
-        s3_client = boto3.client("s3", region_name=dummy_region)
-
-        stubber = Stubber(s3_client)
-        fake_bucket = "cg-testing-cheats-enabled"
-
-        fake_tags = {
-            "TagSet": [
-                {"Key": "Environment", "Value": "staging"},
-                {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
-            ]
-        }
-        expected_param_for_stub = {"Bucket": fake_bucket}
-        stubber.add_response("get_bucket_tagging", fake_tags, expected_param_for_stub)
-        stubber.activate()
-
-        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
-        monkeypatch.setenv("ENVIRONMENT", "staging")
-
-        with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=s3_client
-        ):
-            s3_prefix, domain_prefix = make_prefixes()
-            result = get_resource_tags_from_metric(
-                metric_data_production,
-                dummy_region,
-                s3_client,
-                "staging-cg-",
-                "es_client",
-                "",
-            )
-        assert s3_prefix == "staging-cg-"
-        assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
         assert result == {}
 
