@@ -237,7 +237,7 @@ class TestLambdaHandler:
         assert result["Tags"]["Owner"] == "team-alpha"
 
     def test_process_metric_missing_required_fields(self):
-        """Test process_metric with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), missing required fields"""
+        """Test process_metric with missing required fields"""
         # Missing metric_name
         invalid_metric = {
             "timestamp": 1640995200000,
@@ -259,7 +259,7 @@ class TestLambdaHandler:
         assert result2 is None
 
     def test_process_metric_missing_namespace(self):
-        """Test process_metric with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), missing required fields"""
+        """Test process_metric with missing namespace"""
         # Missing metric_name
         invalid_namespace = {
             "timestamp": 1640995200000,
