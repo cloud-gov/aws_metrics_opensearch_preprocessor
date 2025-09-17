@@ -1,11 +1,8 @@
 import json
 import base64
-import pytest
 from unittest.mock import patch, MagicMock
-import sys
 from botocore.stub import Stubber
 import boto3
-import os
 
 from lambda_functions.transform_lambda import (
     lambda_handler,
@@ -210,7 +207,7 @@ class TestLambdaHandler:
         mock_logger.error.assert_called()
 
     def test_process_metric_valid(self, monkeypatch):
-        """Test process_metric function with patch.dict("os.environ", {"AWS_REGION": "us-gov-west-1"}), valid data"""
+        """Test process_metric function with valid data"""
         input_metric = {
             "timestamp": 1640995200000,
             "namespace": "AWS/S3",
@@ -412,7 +409,7 @@ class TestLambdaHandler:
         assert s3_prefix == "development-cg-"
         assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_staging_environment_es_success(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
@@ -506,7 +503,7 @@ class TestLambdaHandler:
         assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_production_environment_es_success(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
@@ -602,7 +599,7 @@ class TestLambdaHandler:
         assert s3_prefix == "staging-cg-"
         assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_development_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts development prefix when development environment"""
@@ -709,7 +706,7 @@ class TestLambdaHandler:
         assert s3_prefix == "development-cg-"
         assert domain_prefix == "cg-broker-dev-"
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_staging_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts staging prefix when staging environment"""
@@ -816,7 +813,7 @@ class TestLambdaHandler:
         assert domain_prefix == "cg-broker-stg-"
 
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_production_environment_s3_success(self, monkeypatch):
         """Test that environment only accepts production prefix when production environment"""
@@ -918,7 +915,7 @@ class TestLambdaHandler:
         assert s3_prefix == "staging-cg-"
         assert domain_prefix == "cg-broker-stg-"
         # if tags are returned environment is correct
-        assert result is None
+        assert result == {}
 
     def test_s3_tag_retrieval(self, monkeypatch):
         """Test that s3 tags are returned"""
@@ -1005,7 +1002,7 @@ class TestLambdaHandler:
                 "cg-broker-dev",
             )
 
-        assert result is None
+        assert result == {}
 
     def test_es_tag_retrieval(self, monkeypatch):
         """Test that es tags are returned"""
@@ -1093,4 +1090,4 @@ class TestLambdaHandler:
                 "cg-broker",
             )
 
-        assert result is None
+        assert result == {}

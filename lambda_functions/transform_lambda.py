@@ -2,8 +2,6 @@ import json
 import base64
 import boto3
 import logging
-import gzip
-import io
 import os
 
 logger = logging.getLogger()
@@ -21,7 +19,6 @@ def lambda_handler(event, context):
     try:
         for record in event["records"]:
             pre_json_value = base64.b64decode(record["data"])
-            logger.info(f"Processing")
             processed_metrics = []
             for line in pre_json_value.strip().splitlines():
                 metric = json.loads(line)
@@ -90,7 +87,7 @@ def process_metric(metric, region, s3_client, s3_prefix, es_client, domain_prefi
         tags = get_resource_tags_from_metric(
             metric, region, s3_client, s3_prefix, es_client, domain_prefix
         )
-        if tags and tags != []:
+        if len(tags.keys()) > 0:
             metric["Tags"] = tags
             return metric
         else:
@@ -102,43 +99,43 @@ def process_metric(metric, region, s3_client, s3_prefix, es_client, domain_prefi
 
 def get_resource_tags_from_metric(
     metric, region, s3_client, s3_prefix, es_client, domain_prefix
-):
+) -> dict:
+    tags = {}
     try:
-
         namespace = metric.get("namespace")
         dimensions = metric.get("dimensions", {})
         if namespace == "AWS/S3":
             bucket_name = dimensions.get("BucketName")
             if bucket_name.startswith(s3_prefix):
-                result = get_tags_from_name(bucket_name, "S3", s3_client)
-                return None if result == {} else result
+                tags = get_tags_from_name(bucket_name, "S3", s3_client)
         elif namespace == "AWS/ES":
             domain_name = dimensions.get("DomainName")
             client_id = dimensions.get("ClientId")
             if domain_name.startswith(domain_prefix) and client_id:
                 arn = f"arn:aws-us-gov:es:{region}:{client_id}:domain/{domain_name}"
-                result = get_tags_from_arn(arn, es_client)
-                return None if result == {} else result
-        return None
+                tags = get_tags_from_arn(arn, es_client)
     except Exception as e:
-        logger.error("Error with getting tags for resource " + {e})
-        return None
+        logger.error(f"Error with getting tags for resource: {e}")
+    return tags
 
 
-def get_tags_from_name(name, type, client):
+def get_tags_from_name(name, type, client) -> dict:
+    tags = {}
     if type == "S3":
         try:
             response = client.get_bucket_tagging(Bucket=name)
-            return {tag["Key"]: tag["Value"] for tag in response.get("TagSet", [])}
-        except client.exceptions.NoSuchTagSet:
-            return []
+            tags = {tag["Key"]: tag["Value"] for tag in response.get("TagSet", [])}
+        except client.exceptions.NoSuchTagSet as e:
+            logger.error(f"Could not fetch tags: {e}")
+    return tags
 
 
-def get_tags_from_arn(arn, client):
+def get_tags_from_arn(arn, client) -> dict:
+    tags = {}
     if ":domain/" in arn:
         try:
             response = client.list_tags(ARN=arn)
-            return {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
+            tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
         except Exception as e:
-            logger.error("Failed to tag domain" + e)
-            return []
+            logger.error(f"Could not fetch tags: {e}")
+    return tags
