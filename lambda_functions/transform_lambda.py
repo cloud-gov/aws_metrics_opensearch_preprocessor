@@ -60,8 +60,8 @@ def lambda_handler(event, context):
 
 
 def make_prefixes():
-    environment = os.environ.get("ENVIRONMENT", "unknown")
-    if environment == "unknown":
+    environment = os.getenv("ENVIRONMENT")
+    if not environment:
         RuntimeError("environment is required")
     # Prefix setup zone
     s3_prefix = (
