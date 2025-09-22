@@ -3,6 +3,7 @@ import base64
 import boto3
 import logging
 import os
+from functools import lru_cache
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -119,6 +120,7 @@ def get_resource_tags_from_metric(
     return tags
 
 
+@lru_cache(maxsize=256)
 def get_tags_from_name(name, type, client) -> dict:
     tags = {}
     if type == "S3":
@@ -130,6 +132,7 @@ def get_tags_from_name(name, type, client) -> dict:
     return tags
 
 
+@lru_cache(maxsize=256)
 def get_tags_from_arn(arn, client) -> dict:
     tags = {}
     if ":domain/" in arn:
