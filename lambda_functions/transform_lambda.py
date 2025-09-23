@@ -191,6 +191,5 @@ def get_tags_from_arn(arn, client) -> dict:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
         except Exception as e:
-            print(e)
             logger.error(f"Could not fetch tags: {e}")
     return tags
