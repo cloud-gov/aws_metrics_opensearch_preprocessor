@@ -46,6 +46,7 @@ class TestLambdaHandler:
         context = MagicMock()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
@@ -115,6 +116,7 @@ class TestLambdaHandler:
         context = MagicMock()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
@@ -157,6 +159,7 @@ class TestLambdaHandler:
         context = MagicMock()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
@@ -184,6 +187,7 @@ class TestLambdaHandler:
 
         context = MagicMock()
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"):
             result = lambda_handler(event, context)
 
@@ -200,6 +204,7 @@ class TestLambdaHandler:
         context = MagicMock()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger") as mock_logger:
             result = lambda_handler(event, context)
 
@@ -220,11 +225,14 @@ class TestLambdaHandler:
         mock_tags = {"Environment": "production", "Owner": "team-alpha"}
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
         ):
-            result = process_metric(input_metric, dummy_region, "", "", "", "", "", "")
+            result = process_metric(
+                input_metric, dummy_region, "", "", "", "", "", "", 123456
+            )
 
         assert result is not None
         assert result["namespace"] == "AWS/S3"
@@ -243,7 +251,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
-        result = process_metric(invalid_metric, dummy_region, "", "", "", "", "", "")
+        result = process_metric(
+            invalid_metric, dummy_region, "", "", "", "", "", "", 123456
+        )
         assert result is None
 
         # Missing value
@@ -253,7 +263,9 @@ class TestLambdaHandler:
             "metric_name": "ES",
         }
 
-        result2 = process_metric(invalid_metric2, dummy_region, "", "", "", "", "", "")
+        result2 = process_metric(
+            invalid_metric2, dummy_region, "", "", "", "", "", "", 123456
+        )
         assert result2 is None
 
     def test_process_metric_missing_namespace(self):
@@ -265,7 +277,9 @@ class TestLambdaHandler:
             "value": 100,
         }
 
-        result = process_metric(invalid_namespace, dummy_region, "", "", "", "", "", "")
+        result = process_metric(
+            invalid_namespace, dummy_region, "", "", "", "", "", "", 123456
+        )
         assert result is None
 
         # Missing value
@@ -275,7 +289,9 @@ class TestLambdaHandler:
             "metric_name": "TestMetric",
         }
 
-        result2 = process_metric(invalid_metric2, dummy_region, "", "", "", "", "", "")
+        result2 = process_metric(
+            invalid_metric2, dummy_region, "", "", "", "", "", "", 123456
+        )
         assert result2 is None
 
     def test_key_removal_configuration(self):
@@ -305,6 +321,7 @@ class TestLambdaHandler:
         context = MagicMock()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.transform_lambda.get_resource_tags_from_metric",
             return_value=mock_tags,
@@ -339,6 +356,7 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
@@ -388,6 +406,7 @@ class TestLambdaHandler:
                 expected_domain_prefix,
                 "",
                 "",
+                123456,
             )
 
         # if tags are returned environment is correct
@@ -414,6 +433,7 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
@@ -463,6 +483,7 @@ class TestLambdaHandler:
                 expected_domain_prefix,
                 "",
                 "",
+                123456,
             )
 
         # if tags are returned environment is correct
@@ -489,6 +510,7 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
@@ -529,7 +551,7 @@ class TestLambdaHandler:
             "boto3.client", return_value=s3_client
         ):
             result = get_resource_tags_from_metric(
-                metric_data, dummy_region, s3_client, s3_prefix, "", "", "", ""
+                metric_data, dummy_region, s3_client, s3_prefix, "", "", "", "", 123456
             )
 
         # if tags are returned environment is correct
@@ -556,6 +578,7 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
@@ -596,7 +619,7 @@ class TestLambdaHandler:
             "boto3.client", return_value=s3_client
         ):
             result = get_resource_tags_from_metric(
-                metric_data, dummy_region, s3_client, s3_prefix, "", "", "", ""
+                metric_data, dummy_region, s3_client, s3_prefix, "", "", "", "", 123456
             )
 
         # if tags are returned environment is correct
@@ -623,7 +646,9 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
+        monkeypatch.setenv("CLIENT", "123456")
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
         assert s3_prefix == expected_s3_prefix
@@ -646,7 +671,7 @@ class TestLambdaHandler:
         rds_client = boto3.client("rds", region_name=dummy_region)
 
         stubber = Stubber(rds_client)
-        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db/{metric_data['dimensions']['DBInstanceIdentifier']}"
+        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db:{metric_data['dimensions']['DBInstanceIdentifier']}"
 
         fake_tags = {
             "TagList": [
@@ -674,6 +699,7 @@ class TestLambdaHandler:
                 "",
                 rds_client,
                 expected_rds_prefix,
+                123456,
             )
 
         # if tags are returned environment is correct
@@ -700,6 +726,7 @@ class TestLambdaHandler:
         expected_rds_prefix,
     ):
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", environment)
 
         rds_prefix, s3_prefix, domain_prefix = make_prefixes()
@@ -723,7 +750,7 @@ class TestLambdaHandler:
         rds_client = boto3.client("rds", region_name=dummy_region)
 
         stubber = Stubber(rds_client)
-        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db/{metric_data['dimensions']['DBInstanceIdentifier']}"
+        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db:{metric_data['dimensions']['DBInstanceIdentifier']}"
 
         fake_tags = {
             "TagList": [
@@ -751,6 +778,7 @@ class TestLambdaHandler:
                 "",
                 rds_client,
                 expected_rds_prefix,
+                123456,
             )
 
         # if tags are returned environment is correct
@@ -787,6 +815,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=s3_client
@@ -800,6 +829,7 @@ class TestLambdaHandler:
                 "cg-broker-dev",
                 "rds_client",
                 "cg-broker_aws_dev",
+                123456,
             )
 
         assert result["Environment"] == "staging"
@@ -831,6 +861,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=s3_client
         ):
@@ -843,6 +874,7 @@ class TestLambdaHandler:
                 "cg-broker-dev",
                 "rds_client",
                 "cg-broker_aws_dev",
+                123456,
             )
 
         assert result == {}
@@ -878,6 +910,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=es_client
         ):
@@ -890,6 +923,7 @@ class TestLambdaHandler:
                 "cg-broker",
                 "rds_client",
                 "cg-broker_aws_dev",
+                123456,
             )
 
         assert result["Environment"] == "staging"
@@ -922,6 +956,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=es_client
@@ -935,6 +970,7 @@ class TestLambdaHandler:
                 "cg-broker",
                 "rds_client",
                 "cg-broker_aws_dev",
+                123456,
             )
 
         assert result == {}
@@ -956,7 +992,7 @@ class TestLambdaHandler:
         rds_client = boto3.client("rds", region_name=dummy_region)
 
         stubber = Stubber(rds_client)
-        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db/{metric_data['dimensions']['DBInstanceIdentifier']}"
+        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db:{metric_data['dimensions']['DBInstanceIdentifier']}"
         fake_tags = {
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},
@@ -971,6 +1007,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=rds_client
         ):
@@ -983,6 +1020,7 @@ class TestLambdaHandler:
                 "cg-broker",
                 rds_client,
                 "cg-aws-broker-prod",
+                123456,
             )
 
         assert result["Environment"] == "staging"
@@ -1006,7 +1044,7 @@ class TestLambdaHandler:
         rds_client = boto3.client("rds", region_name=dummy_region)
 
         stubber = Stubber(rds_client)
-        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db/{metric_data['dimensions']['DBInstanceIdentifier']}"
+        fake_arn = f"arn:aws-us-gov:rds:us-gov-west-1:{metric_data['dimensions']['ClientId']}:db:{metric_data['dimensions']['DBInstanceIdentifier']}"
         fake_tags = {"TagList": []}
         expected_param_for_stub = {"ResourceName": fake_arn}
         stubber.add_response(
@@ -1015,6 +1053,7 @@ class TestLambdaHandler:
         stubber.activate()
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=rds_client
@@ -1028,6 +1067,7 @@ class TestLambdaHandler:
                 "cg-broker",
                 rds_client,
                 "cg-aws-broker-prod",
+                123456,
             )
 
         assert result == {}

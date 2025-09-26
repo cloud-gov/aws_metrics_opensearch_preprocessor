@@ -15,6 +15,7 @@ def lambda_handler(event, context):
     output_records = []
     region = boto3.Session().region_name or os.environ.get("AWS_REGION")
     rds_prefix, s3_prefix, domain_prefix = make_prefixes()
+    account_id = os.environ.get("ACCOUNT_ID")
     s3_client = boto3.client("s3", region_name=region)
     es_client = boto3.client("es", region_name=region)
     rds_client = boto3.client("rds", region_name=region)
@@ -35,6 +36,7 @@ def lambda_handler(event, context):
                     domain_prefix,
                     rds_client,
                     rds_prefix,
+                    account_id,
                 )
                 if metric_results is not None:
                     metric_results["dimensions"].pop("ClientId", None)
@@ -101,6 +103,7 @@ def process_metric(
     domain_prefix,
     rds_client,
     rds_prefix,
+    account_id,
 ):
     try:
         namespace = metric.get("namespace")
@@ -119,6 +122,7 @@ def process_metric(
             domain_prefix,
             rds_client,
             rds_prefix,
+            account_id,
         )
         if len(tags.keys()) > 0:
             metric["Tags"] = tags
@@ -139,6 +143,7 @@ def get_resource_tags_from_metric(
     domain_prefix,
     rds_client,
     rds_prefix,
+    account_id,
 ) -> dict:
     tags = {}
     try:
@@ -150,15 +155,16 @@ def get_resource_tags_from_metric(
                 tags = get_tags_from_name(bucket_name, "S3", s3_client)
         elif namespace == "AWS/ES":
             domain_name = dimensions.get("DomainName")
-            client_id = dimensions.get("ClientId")
-            if domain_name.startswith(domain_prefix) and client_id:
-                arn = f"arn:aws-us-gov:es:{region}:{client_id}:domain/{domain_name}"
+            if domain_name.startswith(domain_prefix):
+                arn = f"arn:aws-us-gov:es:{region}:{account_id}:domain/{domain_name}"
                 tags = get_tags_from_arn(arn, es_client)
         elif namespace == "AWS/RDS":
             db_name = dimensions.get("DBInstanceIdentifier")
-            client_id = dimensions.get("ClientId")
+            # AWS will tell you average for all db of certain classes
+            if db_name is None:
+                return tags
             if db_name.startswith(rds_prefix):
-                arn = f"arn:aws-us-gov:rds:{region}:{client_id}:db/{db_name}"
+                arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
                 tags = get_tags_from_arn(arn, rds_client)
     except Exception as e:
         logger.error(f"Error with getting tags for resource: {e}")
@@ -186,7 +192,7 @@ def get_tags_from_arn(arn, client) -> dict:
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
         except Exception as e:
             logger.error(f"Could not fetch tags: {e}")
-    if ":db/" in arn:
+    if ":db:" in arn:
         try:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
