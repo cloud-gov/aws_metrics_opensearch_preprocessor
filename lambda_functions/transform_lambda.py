@@ -60,7 +60,13 @@ def lambda_handler(event, context):
                     "data": encoded_output,
                 }
                 output_records.append(output_record)
-
+            else:
+                output_record = {
+                    "recordId": record["recordId"],
+                    "result": "Dropped",
+                    "data": record["data"],
+                }
+                output_records.append(output_record)
             logger.info(f"Processed record with {len(processed_metrics)} metrics")
     except Exception as e:
         logger.error(f"Error processing metrics: {str(e)}")
@@ -134,6 +140,7 @@ def process_metric(
         return None
 
 
+@lru_cache(maxsize=256)
 def get_resource_tags_from_metric(
     metric,
     region,
@@ -198,6 +205,8 @@ def get_tags_from_arn(arn, client) -> dict:
         try:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
+            if "broker" not in tags:
+                return {}
         except Exception as e:
             logger.error(f"Could not fetch tags: {e}")
     return tags
