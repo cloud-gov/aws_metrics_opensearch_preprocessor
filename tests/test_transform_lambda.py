@@ -192,7 +192,8 @@ class TestLambdaHandler:
             result = lambda_handler(event, context)
 
         # Should return empty records list since no valid metrics
-        assert len(result["records"]) == 0
+        assert len(result["records"]) == 1
+        assert result["records"][0]["result"] == "Dropped"
 
     def test_lambda_handler_malformed_json(self, monkeypatch):
         """Test handling of malformed JSON"""

@@ -140,7 +140,6 @@ def process_metric(
         return None
 
 
-@lru_cache(maxsize=256)
 def get_resource_tags_from_metric(
     metric,
     region,
@@ -171,13 +170,16 @@ def get_resource_tags_from_metric(
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
                 tags = get_tags_from_arn(arn, rds_client)
                 if metric.get("metric_name") == "FreeStorageSpace":
-                    size = rds_client.describe_db_instances(
-                        DBInstanceIdentifier=db_name
-                    )
-                    tags["db_size"] = size["DBInstances"][0]["AllocatedStorage"]
+                    tags["db_size"] = get_rds_description(rds_client, db_name)
     except Exception as e:
         logger.error(f"Error with getting tags for resource: {e}")
     return tags
+
+
+@lru_cache(maxsize=256)
+def get_rds_description(rds_client, db_name):
+    size = rds_client.describe_db_instances(DBInstanceIdentifier=db_name)
+    return size["DBInstances"][0]["AllocatedStorage"]
 
 
 @lru_cache(maxsize=256)
@@ -205,7 +207,7 @@ def get_tags_from_arn(arn, client) -> dict:
         try:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
-            if "broker" not in tags:
+            if "organization" not in tags:
                 return {}
         except Exception as e:
             logger.error(f"Could not fetch tags: {e}")
