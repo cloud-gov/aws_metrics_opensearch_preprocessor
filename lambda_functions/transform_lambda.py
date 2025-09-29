@@ -160,10 +160,7 @@ def get_resource_tags_from_metric(
                 tags = get_tags_from_arn(arn, es_client)
         elif namespace == "AWS/RDS":
             db_name = dimensions.get("DBInstanceIdentifier")
-            # AWS will tell you average for all db of certain classes
-            if db_name is None:
-                return tags
-            if db_name.startswith(rds_prefix):
+            if db_name is not None and db_name.startswith(rds_prefix):
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
                 tags = get_tags_from_arn(arn, rds_client)
                 if metric.get("metric_name") == "FreeStorageSpace":
