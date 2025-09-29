@@ -170,7 +170,12 @@ def get_resource_tags_from_metric(
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
                 tags = get_tags_from_arn(arn, rds_client)
                 if metric.get("metric_name") == "FreeStorageSpace":
+                    logger.info(f"real is {metric.get("metric_name")}")
                     tags["db_size"] = get_rds_description(rds_client, db_name)
+                else:
+                    tags.pop("db_size",None)
+            if "db_size" in tags:
+                logger.info(metric.get("metric_name"))
     except Exception as e:
         logger.error(f"Error with getting tags for resource: {e}")
     return tags
