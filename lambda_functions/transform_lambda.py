@@ -151,7 +151,6 @@ def get_resource_tags_from_metric(
     rds_prefix,
     account_id,
 ) -> dict:
-    print(2)
     tags = {}
     try:
         namespace = metric.get("namespace")
