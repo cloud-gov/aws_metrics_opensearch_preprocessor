@@ -151,6 +151,7 @@ def get_resource_tags_from_metric(
     rds_prefix,
     account_id,
 ) -> dict:
+    print(2)
     tags = {}
     try:
         namespace = metric.get("namespace")
@@ -168,14 +169,13 @@ def get_resource_tags_from_metric(
             db_name = dimensions.get("DBInstanceIdentifier")
             if db_name is not None and db_name.startswith(rds_prefix):
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
-                tags = get_tags_from_arn(arn, rds_client)
+                result_tags = get_tags_from_arn(arn, rds_client).copy()
                 if metric.get("metric_name") == "FreeStorageSpace":
-                    logger.info(f"real is {metric.get("metric_name")}")
-                    tags["db_size"] = get_rds_description(rds_client, db_name)
+                    size = get_rds_description(rds_client, db_name)
+                    tags = result_tags
+                    tags.update({"db_size": size})
                 else:
-                    tags.pop("db_size",None)
-            if "db_size" in tags:
-                logger.info(metric.get("metric_name"))
+                    tags = result_tags
     except Exception as e:
         logger.error(f"Error with getting tags for resource: {e}")
     return tags
@@ -183,8 +183,11 @@ def get_resource_tags_from_metric(
 
 @lru_cache(maxsize=256)
 def get_rds_description(rds_client, db_name):
-    size = rds_client.describe_db_instances(DBInstanceIdentifier=db_name)
-    return size["DBInstances"][0]["AllocatedStorage"]
+    try:
+        size = rds_client.describe_db_instances(DBInstanceIdentifier=db_name)
+        return size["DBInstances"][0]["AllocatedStorage"]
+    except Exception as e:
+        logger.error(f"Error with getting rds_description: {e}")
 
 
 @lru_cache(maxsize=256)
@@ -212,7 +215,7 @@ def get_tags_from_arn(arn, client) -> dict:
         try:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
-            if "organization" not in tags:
+            if "Organization GUID" not in tags:
                 return {}
         except Exception as e:
             logger.error(f"Could not fetch tags: {e}")

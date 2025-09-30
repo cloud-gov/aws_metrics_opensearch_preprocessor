@@ -138,6 +138,116 @@ class TestLambdaHandler:
         assert output_metrics[1]["Tags"]["Environment"] == "production"
         assert output_metrics[1]["Tags"]["Owner"] == "team-alpha"
 
+    def test_lambda_handler_many_rds_metric_lines(self, monkeypatch):
+        """Test processing multiple metric lines in one record"""
+        metrics = [
+            {
+                "timestamp": 1640995200000,
+                "metric_stream_name": "test-stream",
+                "namespace": "AWS/RDS",
+                "metric_name": "CPUUtilization",
+                "dimensions": {"DBInstanceIdentifier": "cg-aws-broker-prodjasontest"},
+                "value": 100,
+                "unit": "Percent",
+            },
+            {
+                "timestamp": 1640995260000,
+                "metric_stream_name": "test-stream",
+                "namespace": "AWS/RDS",
+                "metric_name": "FreeStorageSpace",
+                "dimensions": {"DBInstanceIdentifier": "cg-aws-broker-prodjasontest"},
+                "value": 100,
+                "unit": "Bytes",
+            },
+            {
+                "timestamp": 1640995200000,
+                "metric_stream_name": "test-stream",
+                "namespace": "AWS/RDS",
+                "metric_name": "AppleJacks",
+                "dimensions": {"DBInstanceIdentifier": "cg-aws-broker-prodjasontest"},
+                "value": 100,
+                "unit": "Percent",
+            },
+            {
+                "timestamp": 1640995200000,
+                "metric_stream_name": "test-stream",
+                "namespace": "AWS/RDS",
+                "metric_name": "WeloveLambda",
+                "dimensions": {"DBInstanceIdentifier": "cg-aws-broker-prodjasontest"},
+                "value": 100,
+                "unit": "Percent",
+            },
+        ]
+
+        # Create newline-delimited JSON
+        ndjson_data = "\n".join([json.dumps(metric) for metric in metrics]) + "\n"
+        encoded_data = base64.b64encode(ndjson_data.encode("utf-8")).decode("utf-8")
+
+        event = {"records": [{"recordId": "multi-metric-record", "data": encoded_data}]}
+
+        context = MagicMock()
+        # Create a stubbed rds client
+        rds_client = boto3.client("rds", region_name=dummy_region)
+
+        stubber = Stubber(rds_client)
+        fake_arn = (
+            "arn:aws-us-gov:rds:us-gov-west-1:123456:db:cg-aws-broker-prodjasontest"
+        )
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
+            ]
+        }
+        expected_param_for_stub = {"ResourceName": fake_arn}
+
+        # 1
+        stubber.add_response(
+            "list_tags_for_resource", fake_tags, expected_param_for_stub
+        )
+        expected_param_for_describe = {
+            "DBInstanceIdentifier": "cg-aws-broker-prodjasontest"
+        }
+        fake_describe = {"DBInstances": [{"AllocatedStorage": 100}]}
+        # 2
+        stubber.add_response(
+            "describe_db_instances", fake_describe, expected_param_for_describe
+        )
+        stubber.add_response(
+            "list_tags_for_resource", fake_tags, expected_param_for_stub
+        )
+        # 3
+        stubber.add_response(
+            "list_tags_for_resource", fake_tags, expected_param_for_stub
+        )
+        # 4
+        stubber.add_response(
+            "list_tags_for_resource", fake_tags, expected_param_for_stub
+        )
+        stubber.activate()
+
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=rds_client
+        ):
+            result = lambda_handler(event, context)
+
+        assert len(result["records"]) == 1
+        assert result["records"][0]["result"] == "Ok"
+
+        # Decode and verify multiple metrics
+        output_data = base64.b64decode(result["records"][0]["data"]).decode("utf-8")
+        output_metrics = [json.loads(line) for line in output_data.strip().split("\n")]
+
+        assert len(output_metrics) == 4
+        assert "db_size" not in output_metrics[0]["Tags"]
+        assert "db_size" in output_metrics[1]["Tags"]
+        assert "db_size" not in output_metrics[2]["Tags"]
+        assert "db_size" not in output_metrics[3]["Tags"]
+
     def test_lambda_handler_multiple_records(self, monkeypatch):
         """Test processing multiple records"""
         records = []
@@ -387,7 +497,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"ARN": fake_arn}
@@ -413,7 +523,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result["Environment"] == environment
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     @pytest.mark.parametrize(
         "environment, expected_s3_prefix, expected_domain_prefix, expected_rds_prefix",
@@ -464,7 +574,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"ARN": fake_arn}
@@ -541,7 +651,7 @@ class TestLambdaHandler:
             "TagSet": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
@@ -558,7 +668,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result["Environment"] == environment
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     @pytest.mark.parametrize(
         "environment, expected_s3_prefix, expected_domain_prefix, expected_rds_prefix",
@@ -609,7 +719,7 @@ class TestLambdaHandler:
             "TagSet": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
@@ -678,7 +788,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
 
@@ -706,7 +816,7 @@ class TestLambdaHandler:
         # if tags are returned environment is correct
         assert result["Environment"] == environment
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     @pytest.mark.parametrize(
         "environment, expected_s3_prefix, expected_domain_prefix, expected_rds_prefix",
@@ -757,7 +867,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": environment},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
 
@@ -808,7 +918,7 @@ class TestLambdaHandler:
             "TagSet": [
                 {"Key": "Environment", "Value": "staging"},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"Bucket": fake_bucket}
@@ -835,7 +945,7 @@ class TestLambdaHandler:
 
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     def test_s3_tags_none(self, monkeypatch):
         """Test that none is returned when tags are none"""
@@ -903,7 +1013,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"ARN": fake_arn}
@@ -929,7 +1039,7 @@ class TestLambdaHandler:
 
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     def test_es_tags_none(self, monkeypatch):
         """Test that none is returned when tags are none"""
@@ -998,7 +1108,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"ResourceName": fake_arn}
@@ -1026,7 +1136,7 @@ class TestLambdaHandler:
 
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     def test_rds_tag_retrieval_with_size(self, monkeypatch):
         """Test that rds tags are returned"""
@@ -1050,7 +1160,7 @@ class TestLambdaHandler:
             "TagList": [
                 {"Key": "Environment", "Value": "staging"},
                 {"Key": "Testing", "Value": "enabled"},
-                {"Key": "organization", "Value": "cloudgovtests"},
+                {"Key": "Organization GUID", "Value": "cloudgovtests"},
             ]
         }
         expected_param_for_stub = {"ResourceName": fake_arn}
@@ -1086,7 +1196,7 @@ class TestLambdaHandler:
         assert result["db_size"] == 100
         assert result["Environment"] == "staging"
         assert result["Testing"] == "enabled"
-        assert result["organization"] == "cloudgovtests"
+        assert result["Organization GUID"] == "cloudgovtests"
 
     def test_rds_tags_none(self, monkeypatch):
         """Test that none is returned when tags are none"""
