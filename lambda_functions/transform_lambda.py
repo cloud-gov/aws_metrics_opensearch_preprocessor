@@ -171,7 +171,7 @@ def get_resource_tags_from_metric(
                 # copy avoids mutating the cached value returned by get_tags_from_arn
                 result_tags = get_tags_from_arn(arn, rds_client).copy()
                 if (
-                    result_tags != {}
+                    result_tags
                     and metric.get("metric_name") == "FreeStorageSpace"
                 ):
                     size = get_rds_description(rds_client, db_name)
