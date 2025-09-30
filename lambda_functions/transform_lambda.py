@@ -168,10 +168,15 @@ def get_resource_tags_from_metric(
             db_name = dimensions.get("DBInstanceIdentifier")
             if db_name is not None and db_name.startswith(rds_prefix):
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
-                tags = get_tags_from_arn(arn, rds_client).copy()
+                # copy avoids mutating the cached value returned by get_tags_from_arn
+                result_tags = get_tags_from_arn(arn, rds_client).copy()
                 if metric.get("metric_name") == "FreeStorageSpace":
                     size = get_rds_description(rds_client, db_name)
+                    # assign the reference between assigning db_size
+                    tags = result_tags
                     tags.update({"db_size": size})
+                else:
+                    tags = result_tags
     except Exception as e:
         logger.error(f"Error with getting tags for resource: {e}")
     return tags
