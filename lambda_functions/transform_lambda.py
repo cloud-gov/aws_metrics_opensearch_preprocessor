@@ -170,7 +170,10 @@ def get_resource_tags_from_metric(
                 arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{db_name}"
                 # copy avoids mutating the cached value returned by get_tags_from_arn
                 result_tags = get_tags_from_arn(arn, rds_client).copy()
-                if metric.get("metric_name") == "FreeStorageSpace":
+                if (
+                    result_tags
+                    and metric.get("metric_name") == "FreeStorageSpace"
+                ):
                     size = get_rds_description(rds_client, db_name)
                     # assign the reference between assigning db_size
                     tags = result_tags

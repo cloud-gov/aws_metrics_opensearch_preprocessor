@@ -1242,3 +1242,62 @@ class TestLambdaHandler:
             )
 
         assert result == {}
+
+    def test_rds_bad_tags_freestorage(self, monkeypatch):
+        """Test that none is returned when tags are none"""
+        metric_data = {
+            "timestamp": 1640995200000,
+            "namespace": "AWS/RDS",
+            "metric_name": "FreeStorageSpace",
+            "dimensions": {
+                "DBInstanceIdentifier": "cg-aws-broker-prodjasontest",
+                "ClientId": 123456,
+            },
+            "value": 100,
+        }
+
+        # Create a stubbed rds client
+        rds_client = boto3.client("rds", region_name=dummy_region)
+
+        stubber = Stubber(rds_client)
+        fake_arn = (
+            "arn:aws-us-gov:rds:us-gov-west-1:123456:db:cg-aws-broker-prodjasontest"
+        )
+        fake_tags = {
+            "TagList": [
+                {"Key": "Environment", "Value": "staging"},
+                {"Key": "Testing", "Value": "enabled"},
+            ]
+        }
+        expected_param_for_stub = {"ResourceName": fake_arn}
+        expected_param_for_describe = {
+            "DBInstanceIdentifier": "cg-aws-broker-prodjasontest"
+        }
+        fake_describe = {"DBInstances": [{"AllocatedStorage": 100}]}
+        stubber.add_response(
+            "describe_db_instances", fake_describe, expected_param_for_describe
+        )
+        stubber.add_response(
+            "list_tags_for_resource", fake_tags, expected_param_for_stub
+        )
+        stubber.activate()
+
+        monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
+        monkeypatch.setenv("ACCOUNT_ID", "123456")
+
+        with patch("lambda_functions.transform_lambda.logger"), patch(
+            "boto3.client", return_value=rds_client
+        ):
+            result = get_resource_tags_from_metric(
+                metric_data,
+                dummy_region,
+                "s3_client",
+                "cg-",
+                "es_client",
+                "cg-broker",
+                rds_client,
+                "cg-aws-broker-prod",
+                123456,
+            )
+
+        assert result == {}
