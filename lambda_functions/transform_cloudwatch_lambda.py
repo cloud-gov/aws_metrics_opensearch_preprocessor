@@ -76,7 +76,7 @@ def lambda_handler(event, context):
 def make_prefixes():
     environment = os.getenv("ENVIRONMENT")
     if not environment:
-        RuntimeError("environment is required")
+        raise RuntimeError("environment is required")
 
     rds_prefix = "cg-aws-broker-"
     environment_suffixes = {
@@ -84,10 +84,10 @@ def make_prefixes():
         "staging": "stage",
         "development": "dev",
     }
-    if environment in environment_suffixes:
-        rds_prefix += environment_suffixes[environment]
-    else:
-        RuntimeError("environment is invalid")
+    if environment not in environment_suffixes:
+        raise RuntimeError(f"environment is invalid: {environment}")
+        
+    rds_prefix += environment_suffixes[environment]
 
     return rds_prefix
 
