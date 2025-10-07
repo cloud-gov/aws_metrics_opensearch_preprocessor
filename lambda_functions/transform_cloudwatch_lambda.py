@@ -8,7 +8,6 @@ import base64
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-default_keys_to_remove = ["account_id", "region"]
 
 
 def lambda_handler(event, context):
@@ -35,8 +34,6 @@ def lambda_handler(event, context):
             processed_logs = []
             for line in pre_json_value.strip().splitlines():
                 logs = json.loads(line)
-                for key in default_keys_to_remove:
-                    logs.pop(key, None)
                 log_results = process_logs(
                     logs, rds_client, region, account_id, rds_prefix
                 )
@@ -86,7 +83,7 @@ def make_prefixes():
     }
     if environment not in environment_suffixes:
         raise RuntimeError(f"environment is invalid: {environment}")
-        
+
     rds_prefix += environment_suffixes[environment]
 
     return rds_prefix
