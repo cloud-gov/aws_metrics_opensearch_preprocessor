@@ -7,4 +7,4 @@ src/dev set-up-ci-environment
 src/dev set-up-environment
 src/dev bandit
 src/dev black --check
-src/dev test-metric
+src/dev test-cloudwatch
