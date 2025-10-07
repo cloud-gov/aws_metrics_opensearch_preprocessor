@@ -26,6 +26,23 @@ jobs:
         run:
           path: src/ci/metric_lambda_test.sh
 
+- name: test-cloudwatch-lambda
+  plan:
+    - in_parallel:
+      - get: src
+        params: {depth: 1}
+        trigger: true
+        passed: [reconfigure]
+      - get: general-task
+    - task: test
+      image: general-task
+      config:
+        inputs:
+          - name: src
+        platform: linux
+        run:
+          path: src/ci/cloudwatch_lambda_test.sh
+
 
 
 
