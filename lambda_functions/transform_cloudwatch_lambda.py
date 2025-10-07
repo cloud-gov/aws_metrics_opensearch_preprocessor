@@ -8,7 +8,7 @@ import base64
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-default_keys_to_remove = ["metric_stream_name", "account_id", "region"]
+default_keys_to_remove = ["account_id", "region"]
 
 
 def lambda_handler(event, context):
