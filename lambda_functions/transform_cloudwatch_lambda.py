@@ -16,10 +16,19 @@ def lambda_handler(event, context):
     This function processes CloudWatch Logs from Firehose.
     """
     output_records = []
-    rds_prefix = make_prefixes()
-    region = boto3.Session().region_name or os.environ.get("AWS_REGION")
-    account_id = os.environ.get("ACCOUNT_ID")
-    rds_client = boto3.client("rds", region_name=region)
+    try:
+        rds_prefix = make_prefixes()
+        region = boto3.Session().region_name or os.environ.get("AWS_REGION")
+        account_id = os.environ.get("ACCOUNT_ID")
+        if not account_id:
+            raise ValueError("ACCOUNT_ID environment variable is reuqired")
+
+        rds_client = boto3.client("rds", region_name=region)
+    except Exception as e:
+        logger.error(f"Initialization error: {str(e)}")
+        # this will store the records in the s3 bucket as untransformable for later retrying
+        return {"records", []}
+
     try:
         for record in event["records"]:
             pre_json_value = gzip.decompress(base64.b64decode(record["data"]))
@@ -70,12 +79,15 @@ def make_prefixes():
         RuntimeError("environment is required")
 
     rds_prefix = "cg-aws-broker-"
-    if environment == "production":
-        rds_prefix = rds_prefix + "prod"
-    if environment == "staging":
-        rds_prefix = rds_prefix + "stage"
-    if environment == "development":
-        rds_prefix = rds_prefix + "dev"
+    environment_suffixes = {
+        "production": "prod",
+        "staging": "stage",
+        "development": "dev",
+    }
+    if environment in environment_suffixes:
+        rds_prefix += environment_suffixes[environment]
+    else:
+        RuntimeError("environment is invalid")
 
     return rds_prefix
 
