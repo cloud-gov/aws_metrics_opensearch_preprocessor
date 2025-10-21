@@ -150,14 +150,6 @@ main() {
       ${python} -m piptools sync requirements.txt dev-requirements.txt
       ${python} -m pytest tests
       ;;
-    test-cloudwatch)
-      ${python} -m piptools sync requirements.txt dev-requirements.txt
-      ${python} -m pytest tests/test_transform_cloudwatch_lambda.py
-      ;;
-    test-metric)
-      ${python} -m piptools sync requirements.txt dev-requirements.txt
-      ${python} -m pytest tests/test_transform_lambda.py
-      ;;
     format)
       ${python} -m black .
       ;;
