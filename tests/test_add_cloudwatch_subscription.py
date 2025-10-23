@@ -6,11 +6,10 @@ from botocore.stub import Stubber
 import boto3
 import pytest
 
-from lambda_functions.add_cloudwatch_subscrition import (
-    lambda_handler,
-    make_prefixes
-)
+from lambda_functions.add_cloudwatch_subscrition import lambda_handler, make_prefixes
+
 dummy_region = "us-gov-west-1"
+
 
 class TestCloudwatchLambdaHandler:
 
@@ -40,14 +39,14 @@ class TestCloudwatchLambdaHandler:
                             "principalId": "Noseforatude",
                             "arn": "arn:aws:iam::1234556789:role/aws-service-role/rds.amazonaws.com/role",
                             "accountId": "1234556789",
-                            "userName": "AWSServiceRoleForRDS"
+                            "userName": "AWSServiceRoleForRDS",
                         },
                         "attributes": {
                             "creationDate": "2025-10-22T15:58:58Z",
-                            "mfaAuthenticated": "false"
-                        }
+                            "mfaAuthenticated": "false",
+                        },
                     },
-                    "invokedBy": "rds.amazonaws.com"
+                    "invokedBy": "rds.amazonaws.com",
                 },
                 "eventTime": "2025-10-22T15:59:06Z",
                 "eventSource": "logs.amazonaws.com",
@@ -58,16 +57,16 @@ class TestCloudwatchLambdaHandler:
                 "requestParameters": {
                     "logGroupName": "/aws/rds/instance/cg-aws-broker-test"
                 },
-                "responseElements": 'null',
+                "responseElements": "null",
                 "requestID": "5ac65be0-b8e0-42d5-91a6-a92b168d1729",
                 "eventID": "ad11e4b2-e73b-48f3-8f59-227281cfa891",
-                "readOnly": 'false',
+                "readOnly": "false",
                 "eventType": "AwsApiCall",
                 "apiVersion": "20140328",
-                "managementEvent": 'true',
+                "managementEvent": "true",
                 "recipientAccountId": "1234567",
-                "eventCategory": "Management"
-            }
+                "eventCategory": "Management",
+            },
         }
 
         context = MagicMock()
@@ -81,26 +80,24 @@ class TestCloudwatchLambdaHandler:
         stubber = Stubber(logs_client)
 
         expected_param_for_stub = {
-                "logGroupName":test_data["detail"]["requestParameters"]["logGroupName"],
-                "filterName":"firehose_for_opensearch",
-                "filterPattern":"",
-                "destinationArn":"fireexample",
-                "roleArn":"roleexample"
-                }
-        
+            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+            "filterName": "firehose_for_opensearch",
+            "filterPattern": "",
+            "destinationArn": "fireexample",
+            "roleArn": "roleexample",
+        }
+
         response = {}
         stubber.add_response(
             "put_subscription_filter", response, expected_param_for_stub
         )
         stubber.activate()
 
-
-        with patch("lambda_functions.add_cloudwatch_subscrition.make_prefixes",
+        with patch(
+            "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
             return_value="cg-aws-broker-test",
-        ),patch(
-            "boto3.client", return_value=logs_client
-        ):
-            result = lambda_handler(test_data,context)
+        ), patch("boto3.client", return_value=logs_client):
+            result = lambda_handler(test_data, context)
 
         assert result == 0
 
@@ -130,14 +127,14 @@ class TestCloudwatchLambdaHandler:
                             "principalId": "Noseforatude",
                             "arn": "arn:aws:iam::1234556789:role/aws-service-role/rds.amazonaws.com/role",
                             "accountId": "1234556789",
-                            "userName": "AWSServiceRoleForRDS"
+                            "userName": "AWSServiceRoleForRDS",
                         },
                         "attributes": {
                             "creationDate": "2025-10-22T15:58:58Z",
-                            "mfaAuthenticated": "false"
-                        }
+                            "mfaAuthenticated": "false",
+                        },
                     },
-                    "invokedBy": "rds.amazonaws.com"
+                    "invokedBy": "rds.amazonaws.com",
                 },
                 "eventTime": "2025-10-22T15:59:06Z",
                 "eventSource": "logs.amazonaws.com",
@@ -145,19 +142,17 @@ class TestCloudwatchLambdaHandler:
                 "awsRegion": "us-gov-west-1",
                 "sourceIPAddress": "rds.amazonaws.com",
                 "userAgent": "rds.amazonaws.com",
-                "requestParameters": {
-                    "logGroupName": "/aws/rds/instance/apple"
-                },
-                "responseElements": 'null',
+                "requestParameters": {"logGroupName": "/aws/rds/instance/apple"},
+                "responseElements": "null",
                 "requestID": "5ac65be0-b8e0-42d5-91a6-a92b168d1729",
                 "eventID": "ad11e4b2-e73b-48f3-8f59-227281cfa891",
-                "readOnly": 'false',
+                "readOnly": "false",
                 "eventType": "AwsApiCall",
                 "apiVersion": "20140328",
-                "managementEvent": 'true',
+                "managementEvent": "true",
                 "recipientAccountId": "1234567",
-                "eventCategory": "Management"
-            }
+                "eventCategory": "Management",
+            },
         }
 
         context = MagicMock()
@@ -171,30 +166,27 @@ class TestCloudwatchLambdaHandler:
         stubber = Stubber(logs_client)
 
         expected_param_for_stub = {
-                "logGroupName":test_data["detail"]["requestParameters"]["logGroupName"],
-                "filterName":"firehose_for_opensearch",
-                "filterPattern":"",
-                "destinationArn":"fireexample",
-                "roleArn":"roleexample"
-                }
-        
+            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+            "filterName": "firehose_for_opensearch",
+            "filterPattern": "",
+            "destinationArn": "fireexample",
+            "roleArn": "roleexample",
+        }
+
         response = {}
         stubber.add_response(
             "put_subscription_filter", response, expected_param_for_stub
         )
         stubber.activate()
 
-
-        with patch("lambda_functions.add_cloudwatch_subscrition.make_prefixes",
+        with patch(
+            "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
             return_value="cg-aws-broker-test",
-        ),patch(
-            "boto3.client", return_value=logs_client
-        ):
-            result = lambda_handler(test_data,context)
+        ), patch("boto3.client", return_value=logs_client):
+            result = lambda_handler(test_data, context)
 
         # means it did not work
         assert result == 1
-
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
@@ -242,14 +234,14 @@ class TestCloudwatchLambdaHandler:
                             "principalId": "Noseforatude",
                             "arn": "arn:aws:iam::1234556789:role/aws-service-role/rds.amazonaws.com/role",
                             "accountId": "1234556789",
-                            "userName": "AWSServiceRoleForRDS"
+                            "userName": "AWSServiceRoleForRDS",
                         },
                         "attributes": {
                             "creationDate": "2025-10-22T15:58:58Z",
-                            "mfaAuthenticated": "false"
-                        }
+                            "mfaAuthenticated": "false",
+                        },
                     },
-                    "invokedBy": "rds.amazonaws.com"
+                    "invokedBy": "rds.amazonaws.com",
                 },
                 "eventTime": "2025-10-22T15:59:06Z",
                 "eventSource": "logs.amazonaws.com",
@@ -260,16 +252,16 @@ class TestCloudwatchLambdaHandler:
                 "requestParameters": {
                     "logGroupName": f"/aws/rds/instance/{expected_rds_prefix}"
                 },
-                "responseElements": 'null',
+                "responseElements": "null",
                 "requestID": "5ac65be0-b8e0-42d5-91a6-a92b168d1729",
                 "eventID": "ad11e4b2-e73b-48f3-8f59-227281cfa891",
-                "readOnly": 'false',
+                "readOnly": "false",
                 "eventType": "AwsApiCall",
                 "apiVersion": "20140328",
-                "managementEvent": 'true',
+                "managementEvent": "true",
                 "recipientAccountId": "1234567",
-                "eventCategory": "Management"
-            }
+                "eventCategory": "Management",
+            },
         }
 
         # Create a stubbed logs client
@@ -278,13 +270,13 @@ class TestCloudwatchLambdaHandler:
         stubber = Stubber(logs_client)
 
         expected_param_for_stub = {
-                "logGroupName":test_data["detail"]["requestParameters"]["logGroupName"],
-                "filterName":"firehose_for_opensearch",
-                "filterPattern":"",
-                "destinationArn":"fireexample",
-                "roleArn":"roleexample"
-                }
-        
+            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+            "filterName": "firehose_for_opensearch",
+            "filterPattern": "",
+            "destinationArn": "fireexample",
+            "roleArn": "roleexample",
+        }
+
         response = {}
         stubber.add_response(
             "put_subscription_filter", response, expected_param_for_stub
@@ -296,11 +288,9 @@ class TestCloudwatchLambdaHandler:
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=logs_client
         ):
-            result = lambda_handler(test_data,context)
+            result = lambda_handler(test_data, context)
 
         assert result == 0
-
-
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
@@ -348,14 +338,14 @@ class TestCloudwatchLambdaHandler:
                             "principalId": "Noseforatude",
                             "arn": "arn:aws:iam::1234556789:role/aws-service-role/rds.amazonaws.com/role",
                             "accountId": "1234556789",
-                            "userName": "AWSServiceRoleForRDS"
+                            "userName": "AWSServiceRoleForRDS",
                         },
                         "attributes": {
                             "creationDate": "2025-10-22T15:58:58Z",
-                            "mfaAuthenticated": "false"
-                        }
+                            "mfaAuthenticated": "false",
+                        },
                     },
-                    "invokedBy": "rds.amazonaws.com"
+                    "invokedBy": "rds.amazonaws.com",
                 },
                 "eventTime": "2025-10-22T15:59:06Z",
                 "eventSource": "logs.amazonaws.com",
@@ -366,16 +356,16 @@ class TestCloudwatchLambdaHandler:
                 "requestParameters": {
                     "logGroupName": f"/aws/rds/instance/{expected_rds_prefix}"
                 },
-                "responseElements": 'null',
+                "responseElements": "null",
                 "requestID": "5ac65be0-b8e0-42d5-91a6-a92b168d1729",
                 "eventID": "ad11e4b2-e73b-48f3-8f59-227281cfa891",
-                "readOnly": 'false',
+                "readOnly": "false",
                 "eventType": "AwsApiCall",
                 "apiVersion": "20140328",
-                "managementEvent": 'true',
+                "managementEvent": "true",
                 "recipientAccountId": "1234567",
-                "eventCategory": "Management"
-            }
+                "eventCategory": "Management",
+            },
         }
 
         # Create a stubbed logs client
@@ -384,13 +374,13 @@ class TestCloudwatchLambdaHandler:
         stubber = Stubber(logs_client)
 
         expected_param_for_stub = {
-                "logGroupName":test_data["detail"]["requestParameters"]["logGroupName"],
-                "filterName":"firehose_for_opensearch",
-                "filterPattern":"",
-                "destinationArn":"fireexample",
-                "roleArn":"roleexample"
-                }
-        
+            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+            "filterName": "firehose_for_opensearch",
+            "filterPattern": "",
+            "destinationArn": "fireexample",
+            "roleArn": "roleexample",
+        }
+
         response = {}
         stubber.add_response(
             "put_subscription_filter", response, expected_param_for_stub
@@ -402,6 +392,6 @@ class TestCloudwatchLambdaHandler:
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "boto3.client", return_value=logs_client
         ):
-            result = lambda_handler(test_data,context)
+            result = lambda_handler(test_data, context)
 
         assert result == 1

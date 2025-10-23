@@ -6,12 +6,13 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def lambda_handler(event, context):
-    logs = boto3.client('logs')
+    logs = boto3.client("logs")
     FIREHOSE_ARN = os.environ["FIREHOSE_ARN"]
     ROLE_ARN = os.environ["ROLE_ARN"]
     rds_prefix = make_prefixes()
-    detail = event.get('detail', {})
+    detail = event.get("detail", {})
     params = detail.get("requestParameters", {})
     log_group_name = params.get("logGroupName")
 
@@ -24,7 +25,7 @@ def lambda_handler(event, context):
                 filterName=filter_name,
                 filterPattern=filter_pattern,
                 destinationArn=FIREHOSE_ARN,
-                roleArn=ROLE_ARN
+                roleArn=ROLE_ARN,
             )
             logger.info(f"subscription filter made for {log_group_name}")
             return 0
@@ -37,6 +38,7 @@ def lambda_handler(event, context):
     else:
         logger.info(f"log group: {log_group_name} failed")
         return 1
+
 
 def make_prefixes():
     environment = os.getenv("ENVIRONMENT")
