@@ -36,7 +36,7 @@ def lambda_handler(event, context):
             logger.info(f"error creation subscription filter: {e}")
             return 1
     else:
-        logger.info(f"log group: {log_group_name} failed")
+        logger.info(f"log group: {log_group_name} does not apply")
         return 1
 
 
