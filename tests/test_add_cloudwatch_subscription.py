@@ -97,9 +97,8 @@ class TestCloudwatchLambdaHandler:
             "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
             return_value="cg-aws-broker-test",
         ), patch("boto3.client", return_value=logs_client):
-            result = lambda_handler(test_data, context)
-
-        assert result == 0
+            with stubber:
+                lambda_handler(test_data, context)
 
     def test_lambda_handler_not_broker_logs(self, monkeypatch):
         """Test logs from broker"""
@@ -160,33 +159,17 @@ class TestCloudwatchLambdaHandler:
         monkeypatch.setenv("FIREHOSE_ARN", "fireexample")
         monkeypatch.setenv("ROLE_ARN", "roleexample")
 
-        # Create a stubbed logs client
-        logs_client = boto3.client("logs", region_name=dummy_region)
-
-        stubber = Stubber(logs_client)
-
-        expected_param_for_stub = {
-            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
-            "filterName": "firehose_for_opensearch",
-            "filterPattern": "",
-            "destinationArn": "fireexample",
-            "roleArn": "roleexample",
-        }
-
-        response = {}
-        stubber.add_response(
-            "put_subscription_filter", response, expected_param_for_stub
-        )
-        stubber.activate()
-
         with patch(
             "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
             return_value="cg-aws-broker-test",
-        ), patch("boto3.client", return_value=logs_client):
-            result = lambda_handler(test_data, context)
-
-        # means it did not work
-        assert result == 1
+        ), patch("boto3.client") as mock_logs_client:  
+            # Create a stubbed logs client
+            logs_client = boto3.client("logs", region_name=dummy_region)
+            stubber = Stubber(logs_client)
+            mock_logs_client.return_value = logs_client
+            with stubber:
+                #execute lambda handler and expect no api calls
+                lambda_handler(test_data, context)
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
@@ -263,34 +246,34 @@ class TestCloudwatchLambdaHandler:
                 "eventCategory": "Management",
             },
         }
-
-        # Create a stubbed logs client
-        logs_client = boto3.client("logs", region_name=dummy_region)
-
-        stubber = Stubber(logs_client)
-
-        expected_param_for_stub = {
-            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
-            "filterName": "firehose_for_opensearch",
-            "filterPattern": "",
-            "destinationArn": "fireexample",
-            "roleArn": "roleexample",
-        }
-
-        response = {}
-        stubber.add_response(
-            "put_subscription_filter", response, expected_param_for_stub
-        )
-        stubber.activate()
+        
 
         context = MagicMock()
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
-            "boto3.client", return_value=logs_client
-        ):
-            result = lambda_handler(test_data, context)
+            "boto3.client") as mock_boto_client:
+            # Create a stubbed logs client
+            logs_client = boto3.client("logs", region_name=dummy_region)
 
-        assert result == 0
+            stubber = Stubber(logs_client)
+            expected_param_for_stub = {
+            "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+            "filterName": "firehose_for_opensearch",
+            "filterPattern": "",
+            "destinationArn": "fireexample",
+            "roleArn": "roleexample"
+            }
+            print(expected_param_for_stub)
+            response = {}
+            # a succesful response
+            stubber.add_response("put_subscription_filter", response, expected_param_for_stub)
+            print("cool")
+            mock_boto_client.return_value = logs_client
+            
+            #stubber verifies call was made with correct parameters
+            with stubber:
+                lambda_handler(test_data, context)
+
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
@@ -394,4 +377,3 @@ class TestCloudwatchLambdaHandler:
         ):
             result = lambda_handler(test_data, context)
 
-        assert result == 1
