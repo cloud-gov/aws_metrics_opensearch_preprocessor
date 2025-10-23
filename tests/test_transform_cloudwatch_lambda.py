@@ -48,6 +48,7 @@ class TestLambdaHandler:
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
+        monkeypatch.setenv("ENVIRONMENT", "development")
 
         with patch("lambda_functions.transform_cloudwatch_lambda.logger"), patch(
             "lambda_functions.transform_cloudwatch_lambda.get_resource_tags_from_log",
@@ -115,6 +116,8 @@ class TestLambdaHandler:
 
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
         with patch("lambda_functions.transform_cloudwatch_lambda.logger"), patch(
             "lambda_functions.transform_cloudwatch_lambda.get_resource_tags_from_log",
             return_value=mock_tags,
