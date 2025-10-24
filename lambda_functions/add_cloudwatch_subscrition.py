@@ -33,9 +33,6 @@ def lambda_handler(event, context):
             raise RuntimeError(
                 f"Subscription filter already exists for {log_group_name}"
             )
-        except Exception as e:
-            logger.info(f"error creation subscription filter: {e}")
-            raise e
     else:
         logger.info(f"log group: {log_group_name} does not apply")
 
