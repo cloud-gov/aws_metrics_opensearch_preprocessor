@@ -35,7 +35,7 @@ def lambda_handler(event, context):
             )
         except Exception as e:
             logger.info(f"error creation subscription filter: {e}")
-            raise Exception from e
+            raise e
     else:
         logger.info(f"log group: {log_group_name} does not apply")
 
