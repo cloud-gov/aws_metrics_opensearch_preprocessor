@@ -76,20 +76,23 @@ class TestCloudwatchLambdaHandler:
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
-            return_value="cg-aws-broker-test"):
+            return_value="cg-aws-broker-test",
+        ):
             real_logs_client = boto3.client("logs", region_name=dummy_region)
             stubber = Stubber(real_logs_client)
-            
+
             expected_param_for_stub = {
-                "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+                "logGroupName": test_data["detail"]["requestParameters"][
+                    "logGroupName"
+                ],
                 "filterName": "firehose_for_opensearch",
-                "filterPattern": '',
+                "filterPattern": "",
                 "destinationArn": "fireexample",
-                "roleArn": "roleexample"
+                "roleArn": "roleexample",
             }
             stubber.add_response("put_subscription_filter", {}, expected_param_for_stub)
-            
-            with patch('boto3.client', return_value= real_logs_client):
+
+            with patch("boto3.client", return_value=real_logs_client):
                 with stubber:
                     lambda_handler(test_data, context)
 
@@ -156,16 +159,22 @@ class TestCloudwatchLambdaHandler:
 
         with patch("lambda_functions.transform_lambda.logger"), patch(
             "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
-            return_value="cg-aws-broker-test"):
+            return_value="cg-aws-broker-test",
+        ):
             real_logs_client = boto3.client("logs", region_name=dummy_region)
             stubber = Stubber(real_logs_client)
-            stubber.add_client_error("put_subscription_filter",service_error_code="ResourceAlreadyExistsException")
+            stubber.add_client_error(
+                "put_subscription_filter",
+                service_error_code="ResourceAlreadyExistsException",
+            )
             log_group = test_data["detail"]["requestParameters"]["logGroupName"]
-            with patch('boto3.client', return_value= real_logs_client):
-                with pytest.raises(RuntimeError,match=f"Subscription filter already exists for {log_group}"):
+            with patch("boto3.client", return_value=real_logs_client):
+                with pytest.raises(
+                    RuntimeError,
+                    match=f"Subscription filter already exists for {log_group}",
+                ):
                     with stubber:
                         lambda_handler(test_data, context)
-
 
     def test_lambda_handler_not_broker_logs(self, monkeypatch):
         """Test logs from broker"""
@@ -229,13 +238,13 @@ class TestCloudwatchLambdaHandler:
         with patch(
             "lambda_functions.add_cloudwatch_subscrition.make_prefixes",
             return_value="cg-aws-broker-test",
-        ), patch("boto3.client") as mock_logs_client:  
+        ), patch("boto3.client") as mock_logs_client:
             # Create a stubbed logs client
             logs_client = boto3.client("logs", region_name=dummy_region)
             stubber = Stubber(logs_client)
             mock_logs_client.return_value = logs_client
             with stubber:
-                #execute lambda handler and expect no api calls
+                # execute lambda handler and expect no api calls
                 lambda_handler(test_data, context)
 
     @pytest.mark.parametrize(
@@ -318,20 +327,21 @@ class TestCloudwatchLambdaHandler:
         with patch("lambda_functions.transform_lambda.logger"):
             real_logs_client = boto3.client("logs", region_name=dummy_region)
             stubber = Stubber(real_logs_client)
-            
+
             expected_param_for_stub = {
-                "logGroupName": test_data["detail"]["requestParameters"]["logGroupName"],
+                "logGroupName": test_data["detail"]["requestParameters"][
+                    "logGroupName"
+                ],
                 "filterName": "firehose_for_opensearch",
-                "filterPattern": '',
+                "filterPattern": "",
                 "destinationArn": "fireexample",
-                "roleArn": "roleexample"
+                "roleArn": "roleexample",
             }
             stubber.add_response("put_subscription_filter", {}, expected_param_for_stub)
-            
-            with patch('boto3.client', return_value= real_logs_client):
+
+            with patch("boto3.client", return_value=real_logs_client):
                 with stubber:
                     lambda_handler(test_data, context)
-
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
@@ -413,8 +423,8 @@ class TestCloudwatchLambdaHandler:
         with patch("lambda_functions.transform_lambda.logger"):
             real_logs_client = boto3.client("logs", region_name=dummy_region)
             stubber = Stubber(real_logs_client)
-            
-            with patch('boto3.client', return_value= real_logs_client):
-                #stubber will fail if any calls are made
+
+            with patch("boto3.client", return_value=real_logs_client):
+                # stubber will fail if any calls are made
                 with stubber:
                     lambda_handler(test_data, context)

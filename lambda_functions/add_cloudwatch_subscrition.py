@@ -31,7 +31,9 @@ def lambda_handler(event, context):
             return 0
         except logs.exceptions.ResourceAlreadyExistsException:
             logger.info(f"Subscription filter already exists for {log_group_name}")
-            raise RuntimeError(f"Subscription filter already exists for {log_group_name}")
+            raise RuntimeError(
+                f"Subscription filter already exists for {log_group_name}"
+            )
         except Exception as e:
             logger.info(f"error creation subscription filter: {e}")
             raise Exception from e
