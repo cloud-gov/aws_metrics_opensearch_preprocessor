@@ -40,5 +40,4 @@ The preprocessor Lambda functions sit between CloudWatch services and the OpenSe
 - **Unit Tests**: Individual function testing for each Lambda
 - **Integration Tests**: End-to-end pipeline testing across all three Lambda functions
 - **Environment Validation**: Cross-environment testing (dev, staging, production)
-- **Performance Testing**: Load testing for high-volume data processing scenarios
 - **Error Recovery**: Testing failure modes and recovery mechanisms

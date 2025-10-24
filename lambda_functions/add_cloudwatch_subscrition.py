@@ -28,7 +28,6 @@ def lambda_handler(event, context):
                 roleArn=ROLE_ARN,
             )
             logger.info(f"subscription filter made for {log_group_name}")
-            return 0
         except logs.exceptions.ResourceAlreadyExistsException:
             logger.info(f"Subscription filter already exists for {log_group_name}")
             raise RuntimeError(
