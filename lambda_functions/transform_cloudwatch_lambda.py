@@ -20,13 +20,13 @@ def lambda_handler(event, context):
         region = boto3.Session().region_name or os.environ.get("AWS_REGION")
         account_id = os.environ.get("ACCOUNT_ID")
         if not account_id:
-            raise ValueError("ACCOUNT_ID environment variable is reuqired")
+            raise ValueError("ACCOUNT_ID environment variable is required")
 
         rds_client = boto3.client("rds", region_name=region)
     except Exception as e:
         logger.error(f"Initialization error: {str(e)}")
         # this will store the records in the s3 bucket as untransformable for later retrying
-        return {"records", []}
+        return {"records": []}
 
     try:
         for record in event["records"]:
