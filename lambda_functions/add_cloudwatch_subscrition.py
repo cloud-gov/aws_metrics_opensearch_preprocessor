@@ -31,13 +31,12 @@ def lambda_handler(event, context):
             return 0
         except logs.exceptions.ResourceAlreadyExistsException:
             logger.info(f"Subscription filter already exists for {log_group_name}")
-            return 1
+            raise RuntimeError(f"Subscription filter already exists for {log_group_name}")
         except Exception as e:
             logger.info(f"error creation subscription filter: {e}")
-            return 1
+            raise Exception from e
     else:
         logger.info(f"log group: {log_group_name} does not apply")
-        return 1
 
 
 def make_prefixes():
