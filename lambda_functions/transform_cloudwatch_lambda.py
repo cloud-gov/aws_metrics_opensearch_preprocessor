@@ -1,6 +1,8 @@
 import boto3
 import gzip
 import json
+from datetime import datetime
+import time
 import os
 import logging
 from functools import lru_cache
@@ -12,68 +14,113 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     """
-    This function processes CloudWatch Logs from Firehose.
+    This function processes CloudWatch Logs from Firehose, enriches them with RDS tags,
+    and stores them in S3.
     """
     output_records = []
+    s3_output = []
+
     try:
-        rds_prefix = make_prefixes()
         region = boto3.Session().region_name or os.environ.get("AWS_REGION")
+        if not region:
+            raise ValueError("AWS_REGION environment variable or session region is required")
+        bucket = os.environ.get("AWS_BUCKET")
+        if not bucket:
+            logger.error("S3_BUCKET_NAME environment variable not set.")
+            raise ValueError("S3_BUCKET_NAME environment variable must be set.")
         account_id = os.environ.get("ACCOUNT_ID")
         if not account_id:
             raise ValueError("ACCOUNT_ID environment variable is required")
 
+        rds_prefix = make_prefixes()  # Fetch prefix based on environment
+        
+        # Initialize clients
+        s3_client = boto3.client("s3", region_name=region)
         rds_client = boto3.client("rds", region_name=region)
+            
+    except ValueError as e:
+        logger.error(f"Configuration error: {str(e)}")
+        return {"records": []}  # Fail processing if initialization fails
     except Exception as e:
         logger.error(f"Initialization error: {str(e)}")
-        # this will store the records in the s3 bucket as untransformable for later retrying
         return {"records": []}
+    
+    for record in event["records"]:
+        try:
+            # Decode and decompress the CloudWatch Logs data
+            compressed_data = base64.b64decode(record["data"])
+            pre_json_value = gzip.decompress(compressed_data)
 
-    try:
-        for record in event["records"]:
-            pre_json_value = gzip.decompress(base64.b64decode(record["data"]))
             processed_logs = []
             for line in pre_json_value.strip().splitlines():
-                logs = json.loads(line)
-                log_results = process_logs(
-                    logs, rds_client, region, account_id, rds_prefix
-                )
-                if log_results:
-                    processed_logs.extend(log_results)
-
+                try:
+                    logs = json.loads(line)
+                    log_results = process_logs(
+                        logs, rds_client, region, account_id, rds_prefix
+                    )
+                    if log_results:
+                        processed_logs.extend(log_results)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error decoding JSON: {e}. Line: {line}")
+                    continue  # Skip to the next line if JSON decoding fails
             if processed_logs:
-                # Create newline-delimited JSON (no compression)
-                output_data = (
-                    "\n".join([json.dumps(log) for log in processed_logs]) + "\n"
-                )
+                s3_output.extend(processed_logs)  # Flatten the logs directly
 
-                # Just base64 encode for Firehose transport (no gzip)
-                encoded_output = base64.b64encode(output_data.encode("utf-8")).decode(
-                    "utf-8"
-                )
-
+                # Mark the record as successfully processed (but data is now in S3)
                 output_record = {
                     "recordId": record["recordId"],
                     "result": "Ok",
-                    "data": encoded_output,
+                    'data': base64.b64encode(b'').decode('utf-8')  # Empty data
                 }
                 output_records.append(output_record)
             else:
+                # Mark the record as dropped if no logs were processed
                 output_record = {
                     "recordId": record["recordId"],
                     "result": "Dropped",
                     "data": record["data"],
                 }
                 output_records.append(output_record)
-            logger.info(f"Processed record with {len(processed_logs)} logs")
-    except Exception as e:
-        logger.error(f"Error processing logs: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error processing record {record['recordId']}: {str(e)}")
+            # Consider marking the record as failed, or attempt to re-queue it.
+            output_record = {
+                "recordId": record["recordId"],
+                "result": "ProcessingFailed",
+                "data": record["data"],  # Keep original data for retry
+            }
+            output_records.append(output_record)
+
+    # After processing all records, push the combined logs to S3
+    if s3_output:
+        try:
+            # Convert logs to newline-delimited JSON
+            final_output_data = "\n".join([json.dumps(log) for log in s3_output]) + "\n"
+            compressed_data = gzip.compress(final_output_data.encode('utf-8'))
+            s3_key = f"{datetime.now().strftime('%Y/%m/%d/%H')}/batch-{int(time.time())}.json.gz"
+            s3_client.put_object(
+                Bucket=bucket,
+                Key=s3_key,
+                Body=compressed_data,
+                ContentType='application/gzip',
+                ContentEncoding='gzip'
+            )
+            
+            logger.info(f"Successfully pushed {len(s3_output)} logs to S3: {s3_key}")
+
+        except Exception as e:
+            logger.error(f"Failed to push final batch to S3: {str(e)}")
     return {"records": output_records}
 
 
 def make_prefixes():
+    """
+    Determines the prefix based on the ENVIRONMENT variable.
+    """
     environment = os.getenv("ENVIRONMENT")
     if not environment:
-        raise RuntimeError("environment is required")
+        raise RuntimeError("ENVIRONMENT is required")
 
     rds_prefix = "cg-aws-broker-"
     environment_suffixes = {
@@ -81,19 +128,21 @@ def make_prefixes():
         "staging": "stage",
         "development": "dev",
     }
+
     if environment not in environment_suffixes:
-        raise RuntimeError(f"environment is invalid: {environment}")
+        raise RuntimeError(f"Invalid ENVIRONMENT: {environment}")
 
     rds_prefix += environment_suffixes[environment]
-
     return rds_prefix
 
 
 def process_logs(logs, client, region, account_id, rds_prefix):
+    """
+    Enriches CloudWatch Logs with tags.
+    """
     try:
         return_logs = []
         resource_name = logs["logGroup"].split("/")[4]
-
         tags = get_resource_tags_from_log(
             resource_name, client, region, account_id, rds_prefix
         )
@@ -110,35 +159,42 @@ def process_logs(logs, client, region, account_id, rds_prefix):
                 return_logs.append(entry)
         else:
             return None
-        return return_logs
 
     except Exception as e:
         logger.error(f"Could not process logs: {e}")
         return None
-
+    return return_logs
 
 def get_resource_tags_from_log(
     resource_name, client, region, account_id, rds_prefix
 ) -> dict:
+    """
+    Retrieves tags from an instance based on its ARN.
+    """
     tags = {}
     try:
         if resource_name is not None and resource_name.startswith(rds_prefix):
             arn = f"arn:aws-us-gov:rds:{region}:{account_id}:db:{resource_name}"
             tags = get_tags_from_arn(arn, client)
     except Exception as e:
-        logger.error(f"Error with getting tags for resource: {e}")
+        logger.error(f"Error getting tags for resource {resource_name}: {e}")
     return tags
+
 
 
 @lru_cache(maxsize=256)
 def get_tags_from_arn(arn, client) -> dict:
+    """
+    Retrieves tags from an instance using its ARN.  Uses lru_cache to minimize API calls.
+    """
     tags = {}
     if ":db:" in arn:
         try:
             response = client.list_tags_for_resource(ResourceName=arn)
             tags = {tag["Key"]: tag["Value"] for tag in response.get("TagList", [])}
             if "Organization GUID" not in tags:
+                logger.warning(f"Organization GUID tag missing for ARN: {arn}")
                 return {}
         except Exception as e:
-            logger.error(f"Could not fetch tags: {e}")
+            logger.error(f"Could not fetch tags for ARN {arn}: {e}")
     return tags

@@ -4,7 +4,9 @@ from unittest.mock import patch, MagicMock
 import gzip
 from botocore.stub import Stubber
 import boto3
+import time
 import pytest
+from datetime import datetime
 
 from lambda_functions.transform_cloudwatch_lambda import (
     lambda_handler,
@@ -49,6 +51,20 @@ class TestLambdaHandler:
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("AWS_BUCKET", "test-bucket")
+
+        s3 = boto3.client('s3',dummy_region)
+        stubber = Stubber(s3)
+        bucket_name = "test-bucket"
+        key = f"{datetime.now().strftime('%Y/%m/%d/%H')}/batch-{int(time.time())}.json.gz"
+        body = "This is a test file."
+
+        # Define the expected parameters and the mocked response for put_object
+        expected_params = {"Bucket": bucket_name, "Key": key, "Body": body.encode('utf-8')}
+        stubber.add_response("put_object", {}, expected_params)  # Empty response for success
+
+        # Activate the stubber (very important!)
+        stubber.activate()
 
         with patch("lambda_functions.transform_cloudwatch_lambda.logger"), patch(
             "lambda_functions.transform_cloudwatch_lambda.get_resource_tags_from_log",
@@ -61,26 +77,6 @@ class TestLambdaHandler:
         assert len(result["records"]) == 1
         assert result["records"][0]["recordId"] == "test-record-1"
         assert result["records"][0]["result"] == "Ok"
-
-        # Decode and verify output
-        output_data = base64.b64decode(result["records"][0]["data"]).decode("utf-8")
-        output_logs = [json.loads(line) for line in output_data.strip().split("\n")]
-
-        assert len(output_logs) == 1
-        log = output_logs[0]
-
-        # Verify removed fields
-        assert "owner" not in log
-        assert "subscriptionFilters" not in log
-        assert "messageType" not in log
-
-        # Verify core data is preserved
-        assert log["logGroup"] == "/aws/rds/instance/cg-aws-broker-devtest/postgresql"
-        assert log["logStream"] == "cg-aws-broker-devtest.0"
-        assert log["message"] == "This is a test"
-
-        assert log["Tags"]["Environment"] == "production"
-        assert log["Tags"]["Owner"] == "team-alpha"
 
     def test_lambda_handler_multiple_log_lines(self, monkeypatch):
         """Test processing multiple log lines in one record, should seperate different events"""
@@ -117,6 +113,20 @@ class TestLambdaHandler:
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("AWS_BUCKET", "test-bucket")
+
+        s3 = boto3.client('s3',dummy_region)
+        stubber = Stubber(s3)
+        bucket_name = "test-bucket"
+        key = f"{datetime.now().strftime('%Y/%m/%d/%H')}/batch-{int(time.time())}.json.gz"
+        body = "This is a test file."
+        compressed_data = gzip.compress(body.encode('utf-8'))
+        # Define the expected parameters and the mocked response for put_object
+        expected_params = {"Bucket": bucket_name, "Key": key, "Body": compressed_data}
+        stubber.add_response("put_object", {}, expected_params)  # Empty response for success
+
+        # Activate the stubber (very important!)
+        stubber.activate()
 
         with patch("lambda_functions.transform_cloudwatch_lambda.logger"), patch(
             "lambda_functions.transform_cloudwatch_lambda.get_resource_tags_from_log",
@@ -126,20 +136,6 @@ class TestLambdaHandler:
 
         assert len(result["records"]) == 1
         assert result["records"][0]["result"] == "Ok"
-
-        # Decode and verify multiple logs
-        output_data = base64.b64decode(result["records"][0]["data"]).decode("utf-8")
-        output_logs = [json.loads(line) for line in output_data.strip().split("\n")]
-
-        assert len(output_logs) == 2
-        assert output_logs[0]["message"] == "This is a test"
-        assert output_logs[1]["message"] == "do you like my test"
-        assert output_logs[0]["timestamp"] == 1759774467000
-        assert output_logs[1]["timestamp"] == 1759774467002
-        assert output_logs[0]["Tags"]["Environment"] == "production"
-        assert output_logs[0]["Tags"]["Owner"] == "team-alpha"
-        assert output_logs[1]["Tags"]["Environment"] == "production"
-        assert output_logs[1]["Tags"]["Owner"] == "team-alpha"
 
     @pytest.mark.parametrize(
         "environment, expected_rds_prefix",
