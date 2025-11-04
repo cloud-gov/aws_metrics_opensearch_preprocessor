@@ -51,7 +51,7 @@ class TestLambdaHandler:
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", "development")
-        monkeypatch.setenv("AWS_BUCKET", "test-bucket")
+        monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
 
         s3 = boto3.client('s3',dummy_region)
         stubber = Stubber(s3)
@@ -113,7 +113,7 @@ class TestLambdaHandler:
         monkeypatch.setenv("AWS_REGION", "us-gov-west-1")
         monkeypatch.setenv("ACCOUNT_ID", "123456")
         monkeypatch.setenv("ENVIRONMENT", "development")
-        monkeypatch.setenv("AWS_BUCKET", "test-bucket")
+        monkeypatch.setenv("S3_BUCKET_NAME", "test-bucket")
 
         s3 = boto3.client('s3',dummy_region)
         stubber = Stubber(s3)
