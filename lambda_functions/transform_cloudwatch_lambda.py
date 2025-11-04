@@ -24,7 +24,7 @@ def lambda_handler(event, context):
         region = boto3.Session().region_name or os.environ.get("AWS_REGION")
         if not region:
             raise ValueError("AWS_REGION environment variable or session region is required")
-        bucket = os.environ.get("AWS_BUCKET")
+        bucket = os.environ.get("S3_BUCKET_NAME")
         if not bucket:
             logger.error("S3_BUCKET_NAME environment variable not set.")
             raise ValueError("S3_BUCKET_NAME environment variable must be set.")
