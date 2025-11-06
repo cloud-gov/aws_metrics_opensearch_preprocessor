@@ -96,8 +96,7 @@ def lambda_handler(event, context):
     if s3_output:
         try:
             # Convert logs to newline-delimited JSON
-            final_output_data = "\n".join([json.dumps(log) for log in s3_output]) + "\n"
-            compressed_data = gzip.compress(final_output_data.encode('utf-8'))
+            compressed_data = gzip.compress(("\n".join([json.dumps(log) for log in s3_output]) + "\n").encode('utf-8'))
             s3_key = f"{datetime.now().strftime('%Y/%m/%d/%H')}/batch-{int(time.time())}.json.gz"
             s3_client.put_object(
                 Bucket=bucket,
