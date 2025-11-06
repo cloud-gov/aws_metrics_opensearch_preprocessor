@@ -3,6 +3,7 @@ import gzip
 import json
 from datetime import datetime
 import time
+import io
 import os
 import logging
 from functools import lru_cache
@@ -96,7 +97,11 @@ def lambda_handler(event, context):
     if s3_output:
         try:
             # Convert logs to newline-delimited JSON
-            compressed_data = gzip.compress(("\n".join([json.dumps(log) for log in s3_output]) + "\n").encode('utf-8'))
+            buffer = io.BytesIO()
+            with gzip.GzipFile(fileobj=buffer, mode='wb') as gz_file:
+                for log in s3_output:
+                    gz_file.write((json.dumps(log) + '\n').encode('utf-8'))
+            compressed_data = buffer.getvalue()
             s3_key = f"{datetime.now().strftime('%Y/%m/%d/%H')}/batch-{int(time.time())}.json.gz"
             s3_client.put_object(
                 Bucket=bucket,
